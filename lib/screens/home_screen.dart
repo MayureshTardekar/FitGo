@@ -22,14 +22,7 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset('assets/images/logo.png', height: 28),
-            const SizedBox(width: 8),
-            const Text('FitGo'),
-          ],
-        ),
+        title: const Text('FitGo'),
         centerTitle: true,
         actions: [
           IconButton(

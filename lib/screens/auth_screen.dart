@@ -43,7 +43,8 @@ class _AuthScreenState extends State<AuthScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   // Logo
-                  Image.asset('assets/images/logo.png', height: 80),
+                  Icon(Icons.local_fire_department,
+                      size: 56, color: cs.primary),
                   const SizedBox(height: 12),
                   Text(
                     'FitGo',
