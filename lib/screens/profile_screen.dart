@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/profile_provider.dart';
 import '../services/supabase_service.dart';
+import 'auth_screen.dart';
 import 'onboarding_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -67,7 +68,7 @@ class _ProfileBody extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                '${profile.age} years old  ·  ${profile.gender}',
+                '${profile.age} years old  ·  ${profile.gender[0].toUpperCase()}${profile.gender.substring(1)}',
                 style: theme.textTheme.bodyMedium
                     ?.copyWith(color: cs.onSurfaceVariant),
               ),
@@ -186,7 +187,7 @@ class _ProfileBody extends ConsumerWidget {
                 _DetailRow(
                   icon: Icons.person_outline,
                   label: 'Gender',
-                  value: profile.gender,
+                  value: '${profile.gender[0].toUpperCase()}${profile.gender.substring(1)}',
                 ),
               ],
             ),
@@ -266,10 +267,20 @@ class _ProfileBody extends ConsumerWidget {
                       : cs.onSurfaceVariant,
                 ),
                 if (SupabaseService.isLoggedIn) ...[
-                  _DetailRow(
-                    icon: Icons.email_outlined,
-                    label: 'Email',
-                    value: SupabaseService.currentUser?.email ?? '',
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.email_outlined, size: 20, color: cs.primary),
+                      const SizedBox(width: 12),
+                      Text('Email', style: TextStyle(color: cs.onSurfaceVariant)),
+                    ],
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 32, top: 4),
+                    child: Text(
+                      SupabaseService.currentUser?.email ?? '',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
                   ),
                 ],
               ],
@@ -292,9 +303,14 @@ class _ProfileBody extends ConsumerWidget {
         if (SupabaseService.isLoggedIn)
           OutlinedButton.icon(
             onPressed: () async {
+              final nav = Navigator.of(context);
               await SupabaseService.signOut();
               if (context.mounted) {
-                Navigator.of(context).popUntil((route) => route.isFirst);
+                // Pop everything and go back to root — auth gate will show login
+                nav.pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const AuthScreen()),
+                  (route) => false,
+                );
               }
             },
             icon: Icon(Icons.logout, color: cs.error),

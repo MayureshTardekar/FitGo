@@ -17,6 +17,16 @@ class CalorieNotifier extends Notifier<int> {
     storage.saveMetrics(today);
     state = today.totalCalories;
   }
+
+  void setCalories(int total) {
+    final storage = ref.read(localStorageProvider);
+    final today = storage.getToday();
+    today.totalCalories = total;
+    today.calorieEntries.clear();
+    today.calorieEntries.add(total);
+    storage.saveMetrics(today);
+    state = total;
+  }
 }
 
 final calorieProvider =

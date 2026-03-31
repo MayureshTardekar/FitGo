@@ -302,26 +302,48 @@ class _MiniStat extends StatelessWidget {
 
 // ─── Cumulative Trend Chart (Line + Area) ────────────────────────────────────
 
-class _CumulativeTrendChart extends ConsumerWidget {
+class _CumulativeTrendChart extends ConsumerStatefulWidget {
   const _CumulativeTrendChart();
+  @override
+  ConsumerState<_CumulativeTrendChart> createState() => _CumulativeTrendChartState();
+}
+
+class _CumulativeTrendChartState extends ConsumerState<_CumulativeTrendChart> {
+  bool _isCumulative = true;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final w = ref.watch(weeklyProvider);
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
     final actualSpots = <FlSpot>[];
     final targetSpots = <FlSpot>[];
-    for (int i = 0; i < 7; i++) {
-      targetSpots.add(FlSpot(i.toDouble(), w.cumulativeTarget[i].toDouble()));
-      if (!w.days[i].isFuture) {
-        actualSpots
-            .add(FlSpot(i.toDouble(), w.cumulativeIntake[i].toDouble()));
-      }
-    }
+    
+    double maxY = 0;
 
-    final maxY = w.cumulativeTarget.last.toDouble() * 1.15;
+    if (_isCumulative) {
+      for (int i = 0; i < 7; i++) {
+        targetSpots.add(FlSpot(i.toDouble(), w.cumulativeTarget[i].toDouble()));
+        if (!w.days[i].isFuture) {
+          actualSpots.add(FlSpot(i.toDouble(), w.cumulativeIntake[i].toDouble()));
+        }
+      }
+      maxY = w.cumulativeTarget.last.toDouble() * 1.15;
+      if (maxY == 0) maxY = 10000;
+    } else {
+      double maxDaily = w.adjustedDailyTarget.toDouble();
+      for (int i = 0; i < 7; i++) {
+        final double tgt = w.adjustedDailyTarget > 0 ? w.adjustedDailyTarget.toDouble() : 2000.0;
+        targetSpots.add(FlSpot(i.toDouble(), tgt));
+        if (!w.days[i].isFuture) {
+          actualSpots.add(FlSpot(i.toDouble(), w.days[i].calories.toDouble()));
+          if (w.days[i].calories > maxDaily) maxDaily = w.days[i].calories.toDouble();
+        }
+      }
+      maxY = maxDaily * 1.35;
+      if (maxY == 0) maxY = 2500;
+    }
 
     return Card(
       child: Padding(
@@ -331,24 +353,49 @@ class _CumulativeTrendChart extends ConsumerWidget {
           children: [
             Row(
               children: [
-                Text(
-                  'Cumulative Trend',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold),
+                Expanded(
+                  child: Text(
+                    _isCumulative ? 'Cumulative Trend' : 'Daily Trend',
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
                 ),
-                const Spacer(),
+                Container(
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildToggleButton('Daily', !_isCumulative, () {
+                        setState(() { _isCumulative = false; });
+                      }, cs),
+                      _buildToggleButton('Cumul', _isCumulative, () {
+                        setState(() { _isCumulative = true; });
+                      }, cs),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _isCumulative ? 'Your intake vs ideal pace toward ${w.weeklyGoal} kcal' : 'Daily zigzag pattern vs target',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                ),
                 _LegendDot(
                     color: cs.primary, label: 'Actual'),
                 const SizedBox(width: 12),
                 _LegendDot(
                     color: cs.outlineVariant, label: 'Target'),
               ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Your intake vs ideal pace toward ${w.weeklyGoal} kcal',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: cs.onSurfaceVariant),
             ),
             const SizedBox(height: 16),
             SizedBox(
@@ -360,7 +407,7 @@ class _CumulativeTrendChart extends ConsumerWidget {
                   gridData: FlGridData(
                     show: true,
                     drawVerticalLine: false,
-                    horizontalInterval: maxY / 4,
+                    horizontalInterval: maxY / 4 > 0 ? maxY / 4 : 1,
                     getDrawingHorizontalLine: (v) => FlLine(
                       color: cs.outlineVariant.withAlpha(50),
                       strokeWidth: 1,
@@ -371,7 +418,7 @@ class _CumulativeTrendChart extends ConsumerWidget {
                       sideTitles: SideTitles(
                         showTitles: true,
                         reservedSize: 45,
-                        interval: maxY / 4,
+                        interval: maxY / 4 > 0 ? maxY / 4 : 1,
                         getTitlesWidget: (v, _) => Text(
                           _formatK(v),
                           style: TextStyle(
@@ -382,6 +429,7 @@ class _CumulativeTrendChart extends ConsumerWidget {
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
+                        reservedSize: 26,
                         getTitlesWidget: (v, _) {
                           final i = v.toInt();
                           if (i < 0 || i >= w.days.length) {
@@ -434,13 +482,19 @@ class _CumulativeTrendChart extends ConsumerWidget {
                       barWidth: 3,
                       dotData: FlDotData(
                         show: true,
-                        getDotPainter: (spot, percent, barData, index) =>
-                            FlDotCirclePainter(
-                          radius: 4,
-                          color: cs.primary,
-                          strokeWidth: 2,
-                          strokeColor: cs.surface,
-                        ),
+                        getDotPainter: (spot, percent, barData, index) {
+                          bool isOver = false;
+                          if (index >= 0 && index < targetSpots.length) {
+                            // Compare current actual tracking vs target mapping array for the same day
+                            isOver = spot.y > targetSpots[index].y;
+                          }
+                          return FlDotCirclePainter(
+                            radius: isOver ? 5.5 : 4,
+                            color: isOver ? cs.error : cs.primary,
+                            strokeWidth: 2,
+                            strokeColor: cs.surface,
+                          );
+                        },
                       ),
                       belowBarData: BarAreaData(
                         show: true,
@@ -467,6 +521,29 @@ class _CumulativeTrendChart extends ConsumerWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToggleButton(String text, bool isSelected, VoidCallback onTap, ColorScheme cs) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isSelected ? cs.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: isSelected ? cs.onPrimary : cs.onSurfaceVariant,
+          ),
         ),
       ),
     );
@@ -528,7 +605,7 @@ class _DailyBarChart extends ConsumerWidget {
                     ?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             SizedBox(
-              height: 180,
+              height: 220,
               child: BarChart(
                 BarChartData(
                   alignment: BarChartAlignment.spaceAround,
@@ -560,6 +637,7 @@ class _DailyBarChart extends ConsumerWidget {
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
+                        reservedSize: 42,
                         getTitlesWidget: (v, _) {
                           final i = v.toInt();
                           if (i < 0 || i >= w.days.length) {
@@ -612,6 +690,22 @@ class _DailyBarChart extends ConsumerWidget {
                   barGroups: w.days.asMap().entries.map((e) {
                     final i = e.key;
                     final day = e.value;
+                    
+                    List<BarChartRodStackItem>? stackItems;
+                    Color barColor = _barColor(day, cs);
+                    
+                    // Dynamic split logic (No hardcoded values): 
+                    // Base color for normal bounds, Red for the part exceeding dailyTarget
+                    if (!day.isFuture && day.isOver && day.dailyTarget > 0) {
+                      barColor = Colors.transparent;
+                      final double limit = day.dailyTarget.toDouble();
+                      final double total = day.calories.toDouble();
+                      stackItems = [
+                        BarChartRodStackItem(0, limit, const Color(0xFFFFBA08)), // Safe limit (Yellow/Orange)
+                        BarChartRodStackItem(limit, total, cs.error),          // Over limit portion (Red)
+                      ];
+                    }
+
                     return BarChartGroupData(
                       x: i,
                       barRods: [
@@ -620,7 +714,8 @@ class _DailyBarChart extends ConsumerWidget {
                               ? day.dailyTarget * 0.15
                               : day.calories.toDouble(),
                           width: 24,
-                          color: _barColor(day, cs),
+                          color: barColor,
+                          rodStackItems: stackItems,
                           borderRadius: const BorderRadius.vertical(
                             top: Radius.circular(6),
                           ),

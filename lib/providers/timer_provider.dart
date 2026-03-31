@@ -94,7 +94,7 @@ class FastingNotifier extends Notifier<FastingState>
 
     // Validate: start time can't be more than 24h ago
     final now = DateTime.now();
-    if (now.difference(start).inHours > 24) return;
+    if (now.difference(start).inHours > 48) return;
 
     final today = storage.getToday();
     today.fastingStartEpoch = start.millisecondsSinceEpoch;
@@ -132,6 +132,23 @@ class FastingNotifier extends Notifier<FastingState>
     today.fastingStartEpoch = newStart.millisecondsSinceEpoch;
     storage.saveMetrics(today);
     _recalculate();
+  }
+
+  /// Change fasting duration mid-fast
+  void changeDuration(int newMinutes) {
+    if (!state.isFasting) return;
+
+    final epoch = _findActiveFastingEpoch();
+    if (epoch == null) return;
+
+    final storage = ref.read(localStorageProvider);
+    final metrics = storage.getMetricsForDate(epoch.dateKey);
+    if (metrics != null) {
+      metrics.fastingDurationMinutes = newMinutes;
+      storage.saveMetrics(metrics);
+    }
+
+    state = state.copyWith(target: Duration(minutes: newMinutes));
   }
 
   /// Mark the fast as ended at a custom time (for "I ended earlier")

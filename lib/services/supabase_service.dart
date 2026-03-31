@@ -42,7 +42,7 @@ class SupabaseService {
   static Future<void> signInWithGoogle() async {
     await client.auth.signInWithOAuth(
       OAuthProvider.google,
-      redirectTo: 'https://jqvfqjegodjcjngdvlkd.supabase.co/auth/v1/callback',
+      redirectTo: 'com.fitgo.fitgo://login-callback',
     );
   }
 

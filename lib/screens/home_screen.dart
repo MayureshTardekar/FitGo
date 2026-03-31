@@ -13,6 +13,7 @@ import '../providers/weekly_provider.dart';
 import '../providers/weight_provider.dart';
 import '../widgets/radial_dial.dart';
 import '../widgets/weight_chart.dart';
+import 'past_day_screen.dart';
 import 'profile_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -26,8 +27,15 @@ class HomeScreen extends StatelessWidget {
         centerTitle: true,
         actions: [
           IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: 'Log Past Day',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const PastDayLogScreen()),
+            ),
+          ),
+          IconButton(
             icon: const Icon(Icons.person_outline),
-            tooltip: 'Edit Profile',
+            tooltip: 'Profile',
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const ProfileScreen()),
             ),
@@ -277,7 +285,8 @@ class _FastingCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final fasting = ref.watch(fastingProvider);
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
 
     return Card(
       child: Padding(
@@ -286,21 +295,74 @@ class _FastingCard extends ConsumerWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.timer_outlined, color: colorScheme.primary),
+                Icon(Icons.timer_outlined, color: cs.primary),
                 const SizedBox(width: 8),
-                Text(
-                  'Intermittent Fasting',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
+                Text('Intermittent Fasting',
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold)),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+
+            if (fasting.isFasting && fasting.startTime != null) ...[
+              // Protocol selector (tap to change duration mid-fast)
+              GestureDetector(
+                onTap: () => _showDurationPicker(context, ref, fasting.target),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _getProtocolLabel(fasting.target),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: cs.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(Icons.arrow_drop_down, size: 18, color: cs.primary),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // ─── Start / End time row (editable) ───
+              Row(
+                children: [
+                  Expanded(
+                    child: _TimeChip(
+                      label: 'FAST STARTED',
+                      time: _formatDateTime(fasting.startTime!),
+                      icon: Icons.play_circle_outline,
+                      onTap: () => _pickTime(context, ref, isStart: true),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _TimeChip(
+                      label: 'FAST ENDS',
+                      time: _formatDateTime(
+                        fasting.startTime!.add(fasting.target),
+                      ),
+                      icon: Icons.flag_outlined,
+                      onTap: null,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+
             const RadialDial(),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+
             if (!fasting.isFasting) ...[
-              _FastingDurationSelector(
+              _FastingStartSection(
                 onStart: (minutes, {DateTime? startTime}) {
                   ref.read(fastingProvider.notifier).startFasting(
                         durationMinutes: minutes,
@@ -310,41 +372,29 @@ class _FastingCard extends ConsumerWidget {
                 },
               ),
             ] else ...[
-              // Started at info
-              if (fasting.startTime != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+              // End button
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: cs.error,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () {
+                    ref.read(fastingProvider.notifier).stopFasting();
+                    HapticFeedback.lightImpact();
+                  },
                   child: Text(
-                    'Started at ${TimeOfDay.fromDateTime(fasting.startTime!).format(context)}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
+                    fasting.isComplete ? 'Fast Complete — End' : 'End Fast',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  FilledButton.tonalIcon(
-                    onPressed: () {
-                      ref.read(fastingProvider.notifier).stopFasting();
-                      HapticFeedback.lightImpact();
-                    },
-                    icon: Icon(fasting.isComplete ? Icons.check_circle : Icons.stop),
-                    label: Text(
-                      fasting.isComplete ? 'Complete — Reset' : 'Stop Fast',
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton.outlined(
-                    onPressed: () => _showEditStartTime(context, ref),
-                    icon: const Icon(Icons.edit_calendar, size: 20),
-                    tooltip: 'Edit start time',
-                  ),
-                ],
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               TextButton.icon(
-                onPressed: () => _showEndedEarlier(context, ref),
+                onPressed: () => _pickTime(context, ref, isStart: false),
                 icon: const Icon(Icons.history, size: 16),
                 label: const Text('I ended earlier'),
               ),
@@ -355,142 +405,298 @@ class _FastingCard extends ConsumerWidget {
     );
   }
 
-  void _showEditStartTime(BuildContext context, WidgetRef ref) async {
-    final now = DateTime.now();
-    final time = await showTimePicker(
+  void _showDurationPicker(BuildContext context, WidgetRef ref, Duration current) {
+    final presets = {
+      '16:8': 960,
+      '18:6': 1080,
+      '20:4': 1200,
+      '24h': 1440,
+      '36h': 2160,
+    };
+
+    showModalBottomSheet(
       context: context,
-      initialTime: TimeOfDay.now(),
-      helpText: 'When did you start fasting?',
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Change Fasting Duration',
+                  style: Theme.of(ctx).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              ...presets.entries.map((e) {
+                final isSelected = current.inMinutes == e.value;
+                return ListTile(
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  tileColor:
+                      isSelected ? cs.primary.withAlpha(20) : null,
+                  leading: Icon(
+                    isSelected ? Icons.check_circle : Icons.circle_outlined,
+                    color: isSelected ? cs.primary : cs.onSurfaceVariant,
+                  ),
+                  title: Text(e.key,
+                      style: TextStyle(
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected ? cs.primary : cs.onSurface,
+                      )),
+                  subtitle: Text(
+                    '${e.value ~/ 60}h fasting, ${24 - e.value ~/ 60}h eating${e.value > 1440 ? " (extended)" : ""}',
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                  ),
+                  onTap: () {
+                    ref.read(fastingProvider.notifier).changeDuration(e.value);
+                    Navigator.pop(ctx);
+                  },
+                );
+              }),
+              const SizedBox(height: 10),
+            ],
+          ),
+        );
+      },
     );
-    if (time == null || !context.mounted) return;
-
-    // Build DateTime from today + picked time
-    var start = DateTime(now.year, now.month, now.day, time.hour, time.minute);
-
-    // If picked time is in the future, assume it was yesterday
-    if (start.isAfter(now)) {
-      start = start.subtract(const Duration(days: 1));
-    }
-
-    ref.read(fastingProvider.notifier).editStartTime(start);
-
-    if (context.mounted) {
-      final ago = now.difference(start);
-      final hours = ago.inHours;
-      final mins = ago.inMinutes % 60;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Start time updated — ${hours}h ${mins}m ago'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
   }
 
-  void _showEndedEarlier(BuildContext context, WidgetRef ref) async {
+  String _getProtocolLabel(Duration target) {
+    final hours = target.inHours;
+    if (hours >= 24) return '${hours}h';
+    final eating = 24 - hours;
+    return '$hours:$eating';
+  }
+
+  String _formatDateTime(DateTime dt) {
     final now = DateTime.now();
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.now(),
-      helpText: 'When did you actually stop fasting?',
-    );
-    if (time == null || !context.mounted) return;
+    final isToday = dt.day == now.day && dt.month == now.month;
+    final isTomorrow = dt.day == now.day + 1 && dt.month == now.month;
+    final isYesterday = dt.day == now.day - 1 && dt.month == now.month;
 
-    var endTime = DateTime(now.year, now.month, now.day, time.hour, time.minute);
-    if (endTime.isAfter(now)) {
-      endTime = endTime.subtract(const Duration(days: 1));
-    }
+    final timeStr = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    if (isToday) return 'Today, $timeStr';
+    if (isTomorrow) return 'Tomorrow, $timeStr';
+    if (isYesterday) return 'Yesterday, $timeStr';
+    return '${dt.day}/${dt.month}, $timeStr';
+  }
 
-    ref.read(fastingProvider.notifier).stopFastingAt(endTime);
+  Future<void> _pickTime(BuildContext context, WidgetRef ref,
+      {required bool isStart}) async {
+    final now = DateTime.now();
 
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              'Fast ended at ${time.format(context)}'),
-          duration: const Duration(seconds: 2),
-        ),
+    if (isStart) {
+      // Pick date first (last 5 days)
+      final date = await showDatePicker(
+        context: context,
+        initialDate: now,
+        firstDate: now.subtract(const Duration(days: 5)),
+        lastDate: now,
+        helpText: 'When did you start fasting?',
       );
+      if (date == null || !context.mounted) return;
+
+      final time = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.now(),
+        helpText: 'Select start time',
+      );
+      if (time == null || !context.mounted) return;
+
+      var start = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+      if (start.isAfter(now)) return;
+
+      ref.read(fastingProvider.notifier).editStartTime(start);
+    } else {
+      // End time
+      final time = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.now(),
+        helpText: 'When did you stop fasting?',
+      );
+      if (time == null || !context.mounted) return;
+
+      var endTime = DateTime(now.year, now.month, now.day, time.hour, time.minute);
+      if (endTime.isAfter(now)) {
+        endTime = endTime.subtract(const Duration(days: 1));
+      }
+
+      ref.read(fastingProvider.notifier).stopFastingAt(endTime);
     }
   }
 }
 
-class _FastingDurationSelector extends StatefulWidget {
-  final void Function(int minutes, {DateTime? startTime}) onStart;
+class _TimeChip extends StatelessWidget {
+  final String label;
+  final String time;
+  final IconData icon;
+  final VoidCallback? onTap;
 
-  const _FastingDurationSelector({required this.onStart});
+  const _TimeChip({
+    required this.label,
+    required this.time,
+    required this.icon,
+    required this.onTap,
+  });
 
   @override
-  State<_FastingDurationSelector> createState() =>
-      _FastingDurationSelectorState();
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(label,
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      color: cs.onSurfaceVariant,
+                      letterSpacing: 0.5,
+                    )),
+                if (onTap != null) ...[
+                  const Spacer(),
+                  Icon(Icons.edit, size: 12, color: cs.primary),
+                ],
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(icon, size: 14, color: cs.primary),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(time,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: cs.onSurface,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _FastingDurationSelectorState extends State<_FastingDurationSelector> {
+class _FastingStartSection extends StatefulWidget {
+  final void Function(int minutes, {DateTime? startTime}) onStart;
+
+  const _FastingStartSection({required this.onStart});
+
+  @override
+  State<_FastingStartSection> createState() => _FastingStartSectionState();
+}
+
+class _FastingStartSectionState extends State<_FastingStartSection> {
   int _selectedMinutes = AppConstants.defaultFastingMinutes;
 
   static const _presets = {
     '16:8': 960,
     '18:6': 1080,
     '20:4': 1200,
+    '24h': 1440,
+    '36h': 2160,
   };
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        SegmentedButton<int>(
-          segments: _presets.entries
-              .map((e) => ButtonSegment(value: e.value, label: Text(e.key)))
-              .toList(),
-          selected: {_selectedMinutes},
-          onSelectionChanged: (selected) {
-            setState(() => _selectedMinutes = selected.first);
-          },
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          alignment: WrapAlignment.center,
+          children: _presets.entries.map((e) {
+            final selected = _selectedMinutes == e.value;
+            final cs = Theme.of(context).colorScheme;
+            return GestureDetector(
+              onTap: () => setState(() => _selectedMinutes = e.value),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: selected ? cs.primary.withAlpha(25) : cs.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: selected ? cs.primary : cs.outlineVariant,
+                    width: selected ? 2 : 1,
+                  ),
+                ),
+                child: Text(
+                  e.key,
+                  style: TextStyle(
+                    fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                    color: selected ? cs.primary : cs.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
         ),
-        const SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: () => widget.onStart(_selectedMinutes),
-          icon: const Icon(Icons.play_arrow),
-          label: Text(
-            'Start ${formatDurationShort(Duration(minutes: _selectedMinutes))} Fast',
+        const SizedBox(height: 14),
+        // Big start button
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: FilledButton(
+            onPressed: () => widget.onStart(_selectedMinutes),
+            child: Text(
+              'Start ${formatDurationShort(Duration(minutes: _selectedMinutes))} Fast',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
           ),
         ),
         const SizedBox(height: 8),
+        // Started earlier
         TextButton.icon(
-          onPressed: () => _pickStartTime(context),
-          icon: const Icon(Icons.history, size: 18),
+          onPressed: () => _pickPastStart(context),
+          icon: const Icon(Icons.history, size: 16),
           label: const Text('I started earlier'),
         ),
       ],
     );
   }
 
-  Future<void> _pickStartTime(BuildContext context) async {
+  Future<void> _pickPastStart(BuildContext context) async {
     final now = DateTime.now();
+
+    // Pick date (last 5 days)
+    final date = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: now.subtract(const Duration(days: 5)),
+      lastDate: now,
+      helpText: 'Which day did you start?',
+    );
+    if (date == null || !context.mounted) return;
+
+    // Pick time
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.now(),
-      helpText: 'When did you actually start fasting?',
+      helpText: 'What time did you start?',
     );
     if (time == null || !context.mounted) return;
 
-    var start = DateTime(now.year, now.month, now.day, time.hour, time.minute);
-    if (start.isAfter(now)) {
-      start = start.subtract(const Duration(days: 1));
-    }
+    var start = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    if (start.isAfter(now)) return;
 
     widget.onStart(_selectedMinutes, startTime: start);
-
-    if (context.mounted) {
-      final ago = now.difference(start);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              'Fast started ${ago.inHours}h ${ago.inMinutes % 60}m ago'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
   }
 }
 
@@ -604,30 +810,44 @@ class _CalorieCard extends ConsumerWidget {
               ),
             ],
             const SizedBox(height: 16),
+            // Quick add row
             Row(
-              children: [
-                ...AppConstants.calorieQuickAdd.map(
-                  (amount) => Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: FilledButton.tonal(
-                        onPressed: () {
-                          HapticFeedback.lightImpact();
-                          ref.read(calorieProvider.notifier).addCalories(amount);
-                          _checkMilestone(context, totalCalories + amount, dailyQuota);
-                        },
-                        child: Text('+$amount'),
-                      ),
+              children: AppConstants.calorieQuickAdd.map(
+                (amount) => Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: FilledButton.tonal(
+                      onPressed: () {
+                        HapticFeedback.lightImpact();
+                        ref.read(calorieProvider.notifier).addCalories(amount);
+                        _checkMilestone(context, totalCalories + amount, dailyQuota);
+                      },
+                      child: Text('+$amount'),
                     ),
                   ),
                 ),
-                const SizedBox(width: 4),
+              ).toList(),
+            ),
+            const SizedBox(height: 8),
+            // Other + Edit row
+            Row(
+              children: [
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: OutlinedButton(
                       onPressed: () => _showCustomCalorieDialog(context, ref, totalCalories, dailyQuota),
                       child: const Text('Other'),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showEditCaloriesDialog(context, ref, totalCalories),
+                      icon: const Icon(Icons.edit, size: 16),
+                      label: const Text('Edit Total'),
                     ),
                   ),
                 ),
@@ -740,6 +960,41 @@ class _CalorieCard extends ConsumerWidget {
               }
             },
             child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditCaloriesDialog(BuildContext context, WidgetRef ref, int currentTotal) {
+    final controller = TextEditingController(text: currentTotal.toString());
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit Today\'s Calories'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Total calories today',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final value = int.tryParse(controller.text);
+              if (value != null && value >= 0) {
+                ref.read(calorieProvider.notifier).setCalories(value);
+                Navigator.pop(ctx);
+              }
+            },
+            child: const Text('Save'),
           ),
         ],
       ),

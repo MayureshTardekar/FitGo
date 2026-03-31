@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 
 import '../services/supabase_service.dart';
+import 'onboarding_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -302,7 +303,9 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   void _handleSkip() {
-    // Navigate past auth — app works offline with Hive only
-    Navigator.of(context).pop();
+    // Go to onboarding — app works offline with Hive only
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+    );
   }
 }
