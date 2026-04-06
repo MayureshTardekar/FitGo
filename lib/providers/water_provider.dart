@@ -18,5 +18,4 @@ class WaterNotifier extends Notifier<int> {
   }
 }
 
-final waterProvider =
-    NotifierProvider<WaterNotifier, int>(WaterNotifier.new);
+final waterProvider = NotifierProvider<WaterNotifier, int>(WaterNotifier.new);

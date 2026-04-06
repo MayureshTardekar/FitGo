@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/profile_provider.dart';
+import '../providers/analytics_provider.dart';
 import '../providers/weekly_provider.dart';
 
 class AnalyticsScreen extends StatelessWidget {
@@ -13,14 +14,13 @@ class AnalyticsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Analytics'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Analytics'), centerTitle: true),
       body: ListView(
         padding: const EdgeInsets.all(16),
-        children: const [
-          _ScoreRing(),
+        children: [
+          const _TimeframeToggle(),
+          const SizedBox(height: 16),
+          const _ScoreRing(),
           SizedBox(height: 16),
           _QuickStats(),
           SizedBox(height: 16),
@@ -42,6 +42,68 @@ class AnalyticsScreen extends StatelessWidget {
   }
 }
 
+// ─── Timeframe Toggle ────────────────────────────────────────────────────────
+class _TimeframeToggle extends ConsumerWidget {
+  const _TimeframeToggle();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final timeframeState = ref.watch(analyticsTimeframeProvider);
+    final timeframe = timeframeState.timeframe;
+    final analytics = ref.watch(dashboardAnalyticsProvider);
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.chevron_left),
+              onPressed: analytics.canGoBack
+                  ? () => ref.read(analyticsTimeframeProvider.notifier).previous()
+                  : null,
+            ),
+            Expanded(
+              child: Text(
+                analytics.periodLabel,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.chevron_right),
+              onPressed: analytics.canGoForward
+                  ? () => ref.read(analyticsTimeframeProvider.notifier).next()
+                  : null,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SegmentedButton<Timeframe>(
+          segments: const [
+            ButtonSegment(value: Timeframe.thisWeek, label: Text('Week')),
+            ButtonSegment(value: Timeframe.thisMonth, label: Text('Month')),
+            ButtonSegment(value: Timeframe.thisYear, label: Text('Year')),
+          ],
+          selected: {timeframe},
+          onSelectionChanged: (set) {
+            ref.read(analyticsTimeframeProvider.notifier).updateTimeframe(set.first);
+          },
+          style: SegmentedButton.styleFrom(
+            foregroundColor: cs.onSurface,
+            selectedForegroundColor: cs.onPrimary,
+            selectedBackgroundColor: cs.primary,
+            textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 // ─── Score Ring ──────────────────────────────────────────────────────────────
 
 class _ScoreRing extends ConsumerWidget {
@@ -49,7 +111,7 @@ class _ScoreRing extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final weekly = ref.watch(weeklyProvider);
+    final weekly = ref.watch(dashboardAnalyticsProvider);
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
@@ -57,8 +119,8 @@ class _ScoreRing extends ConsumerWidget {
     final ringColor = score >= 70
         ? const Color(0xFFFFBA08)
         : score >= 40
-            ? const Color(0xFFE85D04)
-            : cs.error;
+        ? const Color(0xFFE85D04)
+        : cs.error;
 
     return Card(
       child: Padding(
@@ -119,8 +181,8 @@ class _ScoreRing extends ConsumerWidget {
                     score >= 70
                         ? 'Excellent! You\'re hitting your targets consistently.'
                         : score >= 40
-                            ? 'Good effort. Try to stay within 15% of your daily target.'
-                            : 'Your intake varies a lot. Aim for steady daily portions.',
+                        ? 'Good effort. Try to stay within 15% of your daily target.'
+                        : 'Your intake varies a lot. Aim for steady daily portions.',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: cs.onSurfaceVariant,
                     ),
@@ -129,7 +191,9 @@ class _ScoreRing extends ConsumerWidget {
                     const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFE85D04).withAlpha(25),
                         borderRadius: BorderRadius.circular(20),
@@ -137,8 +201,11 @@ class _ScoreRing extends ConsumerWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.local_fire_department,
-                              size: 14, color: Color(0xFFFF9800)),
+                          const Icon(
+                            Icons.local_fire_department,
+                            size: 14,
+                            color: Color(0xFFFF9800),
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             '${weekly.streakDays}-day streak',
@@ -212,7 +279,7 @@ class _QuickStats extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final w = ref.watch(weeklyProvider);
+    final w = ref.watch(dashboardAnalyticsProvider);
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
@@ -305,7 +372,8 @@ class _MiniStat extends StatelessWidget {
 class _CumulativeTrendChart extends ConsumerStatefulWidget {
   const _CumulativeTrendChart();
   @override
-  ConsumerState<_CumulativeTrendChart> createState() => _CumulativeTrendChartState();
+  ConsumerState<_CumulativeTrendChart> createState() =>
+      _CumulativeTrendChartState();
 }
 
 class _CumulativeTrendChartState extends ConsumerState<_CumulativeTrendChart> {
@@ -313,32 +381,41 @@ class _CumulativeTrendChartState extends ConsumerState<_CumulativeTrendChart> {
 
   @override
   Widget build(BuildContext context) {
-    final w = ref.watch(weeklyProvider);
+    final w = ref.watch(dashboardAnalyticsProvider);
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
     final actualSpots = <FlSpot>[];
     final targetSpots = <FlSpot>[];
-    
+
     double maxY = 0;
 
     if (_isCumulative) {
+      double highestTarget = w.cumulativeTarget.last.toDouble();
+      double highestActual = 0;
       for (int i = 0; i < 7; i++) {
         targetSpots.add(FlSpot(i.toDouble(), w.cumulativeTarget[i].toDouble()));
         if (!w.days[i].isFuture) {
-          actualSpots.add(FlSpot(i.toDouble(), w.cumulativeIntake[i].toDouble()));
+          final double val = w.cumulativeIntake[i].toDouble();
+          actualSpots.add(FlSpot(i.toDouble(), val));
+          if (val > highestActual) highestActual = val;
         }
       }
-      maxY = w.cumulativeTarget.last.toDouble() * 1.15;
+      maxY =
+          (highestActual > highestTarget ? highestActual : highestTarget) *
+          1.15;
       if (maxY == 0) maxY = 10000;
     } else {
       double maxDaily = w.adjustedDailyTarget.toDouble();
       for (int i = 0; i < 7; i++) {
-        final double tgt = w.adjustedDailyTarget > 0 ? w.adjustedDailyTarget.toDouble() : 2000.0;
+        final double tgt = w.adjustedDailyTarget > 0
+            ? w.adjustedDailyTarget.toDouble()
+            : 2000.0;
         targetSpots.add(FlSpot(i.toDouble(), tgt));
         if (!w.days[i].isFuture) {
           actualSpots.add(FlSpot(i.toDouble(), w.days[i].calories.toDouble()));
-          if (w.days[i].calories > maxDaily) maxDaily = w.days[i].calories.toDouble();
+          if (w.days[i].calories > maxDaily)
+            maxDaily = w.days[i].calories.toDouble();
         }
       }
       maxY = maxDaily * 1.35;
@@ -356,8 +433,9 @@ class _CumulativeTrendChartState extends ConsumerState<_CumulativeTrendChart> {
                 Expanded(
                   child: Text(
                     _isCumulative ? 'Cumulative Trend' : 'Daily Trend',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 Container(
@@ -370,10 +448,14 @@ class _CumulativeTrendChartState extends ConsumerState<_CumulativeTrendChart> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       _buildToggleButton('Daily', !_isCumulative, () {
-                        setState(() { _isCumulative = false; });
+                        setState(() {
+                          _isCumulative = false;
+                        });
                       }, cs),
                       _buildToggleButton('Cumul', _isCumulative, () {
-                        setState(() { _isCumulative = true; });
+                        setState(() {
+                          _isCumulative = true;
+                        });
                       }, cs),
                     ],
                   ),
@@ -385,16 +467,17 @@ class _CumulativeTrendChartState extends ConsumerState<_CumulativeTrendChart> {
               children: [
                 Expanded(
                   child: Text(
-                    _isCumulative ? 'Your intake vs ideal pace toward ${w.weeklyGoal} kcal' : 'Daily zigzag pattern vs target',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: cs.onSurfaceVariant),
+                    _isCumulative
+                        ? 'Your intake vs ideal pace toward ${w.totalGoal} kcal'
+                        : 'Daily zigzag pattern vs target',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                 ),
-                _LegendDot(
-                    color: cs.primary, label: 'Actual'),
+                _LegendDot(color: cs.primary, label: 'Actual'),
                 const SizedBox(width: 12),
-                _LegendDot(
-                    color: cs.outlineVariant, label: 'Target'),
+                _LegendDot(color: cs.outlineVariant, label: 'Target'),
               ],
             ),
             const SizedBox(height: 16),
@@ -422,7 +505,9 @@ class _CumulativeTrendChartState extends ConsumerState<_CumulativeTrendChart> {
                         getTitlesWidget: (v, _) => Text(
                           _formatK(v),
                           style: TextStyle(
-                              fontSize: 10, color: cs.onSurfaceVariant),
+                            fontSize: 10,
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ),
                     ),
@@ -435,6 +520,8 @@ class _CumulativeTrendChartState extends ConsumerState<_CumulativeTrendChart> {
                           if (i < 0 || i >= w.days.length) {
                             return const SizedBox();
                           }
+                          int step = w.days.length > 14 ? (w.days.length / 7).ceil() : 1;
+                          if (i % step != 0) return const SizedBox();
                           return Padding(
                             padding: const EdgeInsets.only(top: 6),
                             child: Text(
@@ -454,9 +541,11 @@ class _CumulativeTrendChartState extends ConsumerState<_CumulativeTrendChart> {
                       ),
                     ),
                     topTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false)),
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
                     rightTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false)),
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
                   ),
                   borderData: FlBorderData(show: false),
                   lineBarsData: [
@@ -526,7 +615,12 @@ class _CumulativeTrendChartState extends ConsumerState<_CumulativeTrendChart> {
     );
   }
 
-  Widget _buildToggleButton(String text, bool isSelected, VoidCallback onTap, ColorScheme cs) {
+  Widget _buildToggleButton(
+    String text,
+    bool isSelected,
+    VoidCallback onTap,
+    ColorScheme cs,
+  ) {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -572,10 +666,13 @@ class _LegendDot extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 4),
-        Text(label,
-            style: TextStyle(
-                fontSize: 10,
-                color: Theme.of(context).colorScheme.onSurfaceVariant)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
       ],
     );
   }
@@ -588,7 +685,7 @@ class _DailyBarChart extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final w = ref.watch(weeklyProvider);
+    final w = ref.watch(dashboardAnalyticsProvider);
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
@@ -600,9 +697,12 @@ class _DailyBarChart extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Daily Intake',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold)),
+            Text(
+              'Daily Intake',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(height: 16),
             SizedBox(
               height: 220,
@@ -629,11 +729,14 @@ class _DailyBarChart extends ConsumerWidget {
                   ),
                   titlesData: FlTitlesData(
                     leftTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false)),
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
                     rightTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false)),
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
                     topTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false)),
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
@@ -643,6 +746,8 @@ class _DailyBarChart extends ConsumerWidget {
                           if (i < 0 || i >= w.days.length) {
                             return const SizedBox();
                           }
+                          int step = w.days.length > 14 ? (w.days.length / 7).ceil() : 1;
+                          if (i % step != 0) return const SizedBox();
                           final day = w.days[i];
                           return Padding(
                             padding: const EdgeInsets.only(top: 6),
@@ -690,19 +795,27 @@ class _DailyBarChart extends ConsumerWidget {
                   barGroups: w.days.asMap().entries.map((e) {
                     final i = e.key;
                     final day = e.value;
-                    
+
                     List<BarChartRodStackItem>? stackItems;
                     Color barColor = _barColor(day, cs);
-                    
-                    // Dynamic split logic (No hardcoded values): 
+
+                    // Dynamic split logic (No hardcoded values):
                     // Base color for normal bounds, Red for the part exceeding dailyTarget
                     if (!day.isFuture && day.isOver && day.dailyTarget > 0) {
                       barColor = Colors.transparent;
                       final double limit = day.dailyTarget.toDouble();
                       final double total = day.calories.toDouble();
                       stackItems = [
-                        BarChartRodStackItem(0, limit, const Color(0xFFFFBA08)), // Safe limit (Yellow/Orange)
-                        BarChartRodStackItem(limit, total, cs.error),          // Over limit portion (Red)
+                        BarChartRodStackItem(
+                          0,
+                          limit,
+                          const Color(0xFFFFBA08),
+                        ), // Safe limit (Yellow/Orange)
+                        BarChartRodStackItem(
+                          limit,
+                          total,
+                          cs.error,
+                        ), // Over limit portion (Red)
                       ];
                     }
 
@@ -757,7 +870,7 @@ class _DailyBarChart extends ConsumerWidget {
     );
   }
 
-  double _calcMaxY(WeeklyAnalytics w) {
+  double _calcMaxY(DashboardAnalytics w) {
     double m = w.adjustedDailyTarget.toDouble();
     for (final d in w.days) {
       if (d.calories > m) m = d.calories.toDouble();
@@ -781,7 +894,7 @@ class _CalorieHeatmapRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final w = ref.watch(weeklyProvider);
+    final w = ref.watch(dashboardAnalyticsProvider);
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
@@ -791,69 +904,72 @@ class _CalorieHeatmapRow extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Weekly Heatmap',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold)),
+            Text(
+              'Timeframe Heatmap',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(height: 4),
             Text(
               'Intensity shows how close to target each day',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: cs.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 16),
-            Row(
+            Wrap(
+              spacing: w.days.length > 7 ? 4 : 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
               children: w.days.map((day) {
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 2),
-                    child: Column(
-                      children: [
-                        Text(
-                          day.dayName,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: day.isToday
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                            color: day.isToday
-                                ? cs.primary
-                                : cs.onSurfaceVariant,
-                          ),
+                return SizedBox(
+                  width: w.days.length > 7 ? 28 : 40,
+                  child: Column(
+                    children: [
+                      Text(
+                        w.days.length > 31 ? '' : day.dayName,
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: day.isToday
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: day.isToday
+                              ? cs.primary
+                              : cs.onSurfaceVariant,
                         ),
-                        const SizedBox(height: 6),
-                        AspectRatio(
-                          aspectRatio: 1,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: _heatColor(day, cs),
-                              borderRadius: BorderRadius.circular(8),
-                              border: day.isToday
-                                  ? Border.all(color: cs.primary, width: 2)
-                                  : null,
-                            ),
-                            alignment: Alignment.center,
-                            child: !day.isFuture && day.calories > 0
-                                ? Text(
-                                    '${day.calories}',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: day.isOver
-                                          ? Colors.white
-                                          : cs.onSurface,
-                                    ),
-                                  )
-                                : Icon(
-                                    day.isFuture
-                                        ? Icons.remove
-                                        : Icons.close,
-                                    size: 12,
-                                    color: cs.onSurfaceVariant,
+                      ),
+                      SizedBox(height: w.days.length > 31 ? 0 : 4),
+                      AspectRatio(
+                        aspectRatio: 1,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: _heatColor(day, cs),
+                            borderRadius: BorderRadius.circular(4),
+                            border: day.isToday
+                                ? Border.all(color: cs.primary, width: 1.5)
+                                : null,
+                          ),
+                          alignment: Alignment.center,
+                          child: !day.isFuture && day.calories > 0
+                              ? Text(
+                                  w.days.length > 14 ? '' : '${day.calories}',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: day.isOver
+                                        ? Colors.white
+                                        : cs.onSurface,
                                   ),
-                          ),
+                                )
+                              : Icon(
+                                  day.isFuture ? Icons.remove : Icons.close,
+                                  size: w.days.length > 14 ? 8 : 12,
+                                  color: cs.onSurfaceVariant,
+                                ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 );
               }).toList(),
@@ -863,13 +979,14 @@ class _CalorieHeatmapRow extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _HeatLegend(color: cs.surfaceContainerHighest, label: 'No data'),
+                _HeatLegend(
+                  color: cs.surfaceContainerHighest,
+                  label: 'No data',
+                ),
                 const SizedBox(width: 8),
-                const _HeatLegend(
-                    color: Color(0xFFFAA307), label: 'On target'),
+                const _HeatLegend(color: Color(0xFFFAA307), label: 'On target'),
                 const SizedBox(width: 8),
-                const _HeatLegend(
-                    color: Color(0xFFE85D04), label: 'Close'),
+                const _HeatLegend(color: Color(0xFFE85D04), label: 'Close'),
                 const SizedBox(width: 8),
                 _HeatLegend(color: cs.error, label: 'Over'),
               ],
@@ -883,8 +1000,7 @@ class _CalorieHeatmapRow extends ConsumerWidget {
   Color _heatColor(DaySummary day, ColorScheme cs) {
     if (day.isFuture) return cs.surfaceContainerHighest;
     if (day.calories == 0) return cs.surfaceContainerHighest;
-    final deviation =
-        (day.calories - day.dailyTarget).abs() / day.dailyTarget;
+    final deviation = (day.calories - day.dailyTarget).abs() / day.dailyTarget;
     if (day.isOver) {
       if (deviation > 0.2) return cs.error;
       return const Color(0xFFE85D04);
@@ -909,14 +1025,19 @@ class _HeatLegend extends StatelessWidget {
         Container(
           width: 10,
           height: 10,
-          decoration:
-              BoxDecoration(color: color, borderRadius: BorderRadius.circular(3)),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(3),
+          ),
         ),
         const SizedBox(width: 3),
-        Text(label,
-            style: TextStyle(
-                fontSize: 9,
-                color: Theme.of(context).colorScheme.onSurfaceVariant)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 9,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
       ],
     );
   }
@@ -929,7 +1050,7 @@ class _DayByDayExpander extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final w = ref.watch(weeklyProvider);
+    final w = ref.watch(dashboardAnalyticsProvider);
     final theme = Theme.of(context);
 
     return Card(
@@ -940,13 +1061,16 @@ class _DayByDayExpander extends ConsumerWidget {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-              child: Text('Day Details',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold)),
-            ),
-            ...w.days.where((d) => !d.isFuture).map(
-                  (day) => _ExpandableDayTile(day: day),
+              child: Text(
+                'Day Details',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
+              ),
+            ),
+            ...w.days
+                .where((d) => !d.isFuture)
+                .map((day) => _ExpandableDayTile(day: day)),
           ],
         ),
       ),
@@ -966,19 +1090,16 @@ class _ExpandableDayTile extends StatelessWidget {
 
     final diff = day.difference;
     final diffText = diff >= 0 ? '+$diff' : '$diff';
-    final diffColor =
-        diff > 0 ? cs.error : const Color(0xFFFFBA08);
+    final diffColor = diff > 0 ? cs.error : const Color(0xFFFFBA08);
 
     return ExpansionTile(
       leading: Container(
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color:
-              day.isToday ? cs.primaryContainer : cs.surfaceContainerHigh,
+          color: day.isToday ? cs.primaryContainer : cs.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(8),
-          border:
-              day.isToday ? Border.all(color: cs.primary, width: 2) : null,
+          border: day.isToday ? Border.all(color: cs.primary, width: 2) : null,
         ),
         alignment: Alignment.center,
         child: Text(
@@ -1057,9 +1178,12 @@ class _ExpandableDayTile extends StatelessWidget {
               ),
               if (day.calorieEntries.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                Text('Calorie Log:',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(fontWeight: FontWeight.w600)),
+                Text(
+                  'Calorie Log:',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 const SizedBox(height: 6),
                 Wrap(
                   spacing: 6,
@@ -1067,7 +1191,9 @@ class _ExpandableDayTile extends StatelessWidget {
                   children: day.calorieEntries.map((entry) {
                     return Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: cs.surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(20),
@@ -1109,10 +1235,13 @@ class _DetailChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(label,
-            style: TextStyle(
-                fontSize: 10,
-                color: Theme.of(context).colorScheme.onSurfaceVariant)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
         const SizedBox(height: 2),
         RichText(
           text: TextSpan(
@@ -1149,7 +1278,7 @@ class _InsightsCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final w = ref.watch(weeklyProvider);
+    final w = ref.watch(dashboardAnalyticsProvider);
     final theme = Theme.of(context);
 
     if (w.insights.isEmpty) return const SizedBox();
@@ -1162,12 +1291,18 @@ class _InsightsCard extends ConsumerWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.lightbulb_outline,
-                    color: Color(0xFFFF9800), size: 20),
+                const Icon(
+                  Icons.lightbulb_outline,
+                  color: Color(0xFFFF9800),
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
-                Text('Smart Insights',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold)),
+                Text(
+                  'Smart Insights',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -1255,12 +1390,12 @@ class _ProjectionCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final w = ref.watch(weeklyProvider);
+    final w = ref.watch(dashboardAnalyticsProvider);
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
     final isOnTrack = w.isOnTrack;
-    final projDiff = w.projectedWeekTotal - w.weeklyGoal;
+    final projDiff = w.projectedTotal - w.totalGoal;
 
     return Card(
       color: isOnTrack
@@ -1278,16 +1413,19 @@ class _ProjectionCard extends ConsumerWidget {
                   size: 20,
                 ),
                 const SizedBox(width: 8),
-                Text('Week-End Projection',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold)),
+                Text(
+                  'Period-End Projection',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 16),
             // Projection gauge
             _ProjectionGauge(
-              projected: w.projectedWeekTotal,
-              goal: w.weeklyGoal,
+              projected: w.projectedTotal,
+              goal: w.totalGoal,
               isOnTrack: isOnTrack,
             ),
             const SizedBox(height: 16),
@@ -1296,12 +1434,12 @@ class _ProjectionCard extends ConsumerWidget {
               children: [
                 _MiniProjectionStat(
                   label: 'Projected',
-                  value: w.projectedWeekTotal,
+                  value: w.projectedTotal,
                   color: cs.onSurface,
                 ),
                 _MiniProjectionStat(
                   label: 'Goal',
-                  value: w.weeklyGoal,
+                  value: w.totalGoal,
                   color: cs.onSurfaceVariant,
                 ),
                 _MiniProjectionStat(
@@ -1313,8 +1451,7 @@ class _ProjectionCard extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             GestureDetector(
-              onTap: () =>
-                  _showEditGoal(context, ref, w.weeklyGoal),
+              onTap: () => _showEditGoal(context, ref, w.totalGoal),
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -1362,8 +1499,9 @@ class _ProjectionCard extends ConsumerWidget {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             onPressed: () {
               final v = int.tryParse(controller.text);
@@ -1417,18 +1555,17 @@ class _ProjectionGauge extends StatelessWidget {
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(10),
                       child: TweenAnimationBuilder<double>(
-                        tween: Tween(
-                            begin: 0,
-                            end: ratio.clamp(0.0, 1.0)),
+                        tween: Tween(begin: 0, end: ratio.clamp(0.0, 1.0)),
                         duration: const Duration(milliseconds: 800),
                         curve: Curves.easeOutCubic,
-                        builder: (context, value, child) => LinearProgressIndicator(
-                          value: value,
-                          backgroundColor: cs.surfaceContainerHighest,
-                          color: isOnTrack
-                              ? const Color(0xFFFFBA08)
-                              : cs.error,
-                        ),
+                        builder: (context, value, child) =>
+                            LinearProgressIndicator(
+                              value: value,
+                              backgroundColor: cs.surfaceContainerHighest,
+                              color: isOnTrack
+                                  ? const Color(0xFFFFBA08)
+                                  : cs.error,
+                            ),
                       ),
                     ),
                   ),
@@ -1436,11 +1573,7 @@ class _ProjectionGauge extends StatelessWidget {
                   Positioned(
                     left: markerPos - 1,
                     top: -2,
-                    child: Container(
-                      width: 2,
-                      height: 24,
-                      color: cs.onSurface,
-                    ),
+                    child: Container(width: 2, height: 24, color: cs.onSurface),
                   ),
                 ],
               );
@@ -1467,10 +1600,13 @@ class _MiniProjectionStat extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(label,
-            style: TextStyle(
-                fontSize: 10,
-                color: Theme.of(context).colorScheme.onSurfaceVariant)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
         Text(
           '$value',
           style: TextStyle(
@@ -1481,10 +1617,13 @@ class _MiniProjectionStat extends StatelessWidget {
             color: color,
           ),
         ),
-        Text('kcal',
-            style: TextStyle(
-                fontSize: 9,
-                color: Theme.of(context).colorScheme.onSurfaceVariant)),
+        Text(
+          'kcal',
+          style: TextStyle(
+            fontSize: 9,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
       ],
     );
   }

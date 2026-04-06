@@ -138,10 +138,7 @@ class _MainShell extends StatefulWidget {
 class _MainShellState extends State<_MainShell> {
   int _currentIndex = 0;
 
-  static const _screens = [
-    HomeScreen(),
-    AnalyticsScreen(),
-  ];
+  static const _screens = [HomeScreen(), AnalyticsScreen()];
 
   @override
   Widget build(BuildContext context) {

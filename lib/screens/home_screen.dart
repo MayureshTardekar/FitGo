@@ -29,16 +29,16 @@ class HomeScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.history),
             tooltip: 'Log Past Day',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const PastDayLogScreen()),
-            ),
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const PastDayLogScreen())),
           ),
           IconButton(
             icon: const Icon(Icons.person_outline),
             tooltip: 'Profile',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ProfileScreen()),
-            ),
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
           ),
         ],
       ),
@@ -83,8 +83,8 @@ class _WeeklyBanner extends ConsumerWidget {
     final statusColor = isOver
         ? colorScheme.error
         : weekly.isOnTrack
-            ? const Color(0xFFFFBA08)
-            : const Color(0xFFE85D04);
+        ? const Color(0xFFFFBA08)
+        : const Color(0xFFE85D04);
     final bannerColor = statusColor.withAlpha(20);
     final textColor = colorScheme.onSurface;
 
@@ -102,8 +102,8 @@ class _WeeklyBanner extends ConsumerWidget {
                 isOver
                     ? Icons.warning_amber_rounded
                     : weekly.isOnTrack
-                        ? Icons.check_circle_outline
-                        : Icons.info_outline,
+                    ? Icons.check_circle_outline
+                    : Icons.info_outline,
                 color: statusColor,
                 size: 20,
               ),
@@ -150,7 +150,10 @@ class _WeeklyBanner extends ConsumerWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: weekly.weeklyProgress.clamp(0.0, 1.0)),
+              tween: Tween(
+                begin: 0,
+                end: weekly.weeklyProgress.clamp(0.0, 1.0),
+              ),
               duration: const Duration(milliseconds: 600),
               curve: Curves.easeOutCubic,
               builder: (context, value, child) => LinearProgressIndicator(
@@ -243,10 +246,7 @@ class _SparklinePainter extends CustomPainter {
     // Fill under the line
     fillPath.lineTo((values.length - 1) * stepX, size.height);
     fillPath.close();
-    canvas.drawPath(
-      fillPath,
-      Paint()..color = color.withAlpha(30),
-    );
+    canvas.drawPath(fillPath, Paint()..color = color.withAlpha(30));
 
     // Line
     canvas.drawPath(
@@ -264,11 +264,7 @@ class _SparklinePainter extends CustomPainter {
       if (values[i] > 0) {
         final x = i * stepX;
         final y = size.height - (values[i] / maxVal * size.height);
-        canvas.drawCircle(
-          Offset(x, y),
-          2.5,
-          Paint()..color = color,
-        );
+        canvas.drawCircle(Offset(x, y), 2.5, Paint()..color = color);
       }
     }
   }
@@ -297,9 +293,12 @@ class _FastingCard extends ConsumerWidget {
               children: [
                 Icon(Icons.timer_outlined, color: cs.primary),
                 const SizedBox(width: 8),
-                Text('Intermittent Fasting',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold)),
+                Text(
+                  'Intermittent Fasting',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -309,7 +308,10 @@ class _FastingCard extends ConsumerWidget {
               GestureDetector(
                 onTap: () => _showDurationPicker(context, ref, fasting.target),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: cs.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(20),
@@ -364,7 +366,9 @@ class _FastingCard extends ConsumerWidget {
             if (!fasting.isFasting) ...[
               _FastingStartSection(
                 onStart: (minutes, {DateTime? startTime}) {
-                  ref.read(fastingProvider.notifier).startFasting(
+                  ref
+                      .read(fastingProvider.notifier)
+                      .startFasting(
                         durationMinutes: minutes,
                         startTime: startTime,
                       );
@@ -388,7 +392,9 @@ class _FastingCard extends ConsumerWidget {
                   child: Text(
                     fasting.isComplete ? 'Fast Complete — End' : 'End Fast',
                     style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold),
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
@@ -405,7 +411,11 @@ class _FastingCard extends ConsumerWidget {
     );
   }
 
-  void _showDurationPicker(BuildContext context, WidgetRef ref, Duration current) {
+  void _showDurationPicker(
+    BuildContext context,
+    WidgetRef ref,
+    Duration current,
+  ) {
     final presets = {
       '16:8': 960,
       '18:6': 1080,
@@ -424,27 +434,33 @@ class _FastingCard extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Change Fasting Duration',
-                  style: Theme.of(ctx).textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold)),
+              Text(
+                'Change Fasting Duration',
+                style: Theme.of(
+                  ctx,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 16),
               ...presets.entries.map((e) {
                 final isSelected = current.inMinutes == e.value;
                 return ListTile(
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                  tileColor:
-                      isSelected ? cs.primary.withAlpha(20) : null,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  tileColor: isSelected ? cs.primary.withAlpha(20) : null,
                   leading: Icon(
                     isSelected ? Icons.check_circle : Icons.circle_outlined,
                     color: isSelected ? cs.primary : cs.onSurfaceVariant,
                   ),
-                  title: Text(e.key,
-                      style: TextStyle(
-                        fontWeight:
-                            isSelected ? FontWeight.bold : FontWeight.normal,
-                        color: isSelected ? cs.primary : cs.onSurface,
-                      )),
+                  title: Text(
+                    e.key,
+                    style: TextStyle(
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                      color: isSelected ? cs.primary : cs.onSurface,
+                    ),
+                  ),
                   subtitle: Text(
                     '${e.value ~/ 60}h fasting, ${24 - e.value ~/ 60}h eating${e.value > 1440 ? " (extended)" : ""}',
                     style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
@@ -476,15 +492,19 @@ class _FastingCard extends ConsumerWidget {
     final isTomorrow = dt.day == now.day + 1 && dt.month == now.month;
     final isYesterday = dt.day == now.day - 1 && dt.month == now.month;
 
-    final timeStr = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    final timeStr =
+        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
     if (isToday) return 'Today, $timeStr';
     if (isTomorrow) return 'Tomorrow, $timeStr';
     if (isYesterday) return 'Yesterday, $timeStr';
     return '${dt.day}/${dt.month}, $timeStr';
   }
 
-  Future<void> _pickTime(BuildContext context, WidgetRef ref,
-      {required bool isStart}) async {
+  Future<void> _pickTime(
+    BuildContext context,
+    WidgetRef ref, {
+    required bool isStart,
+  }) async {
     final now = DateTime.now();
 
     if (isStart) {
@@ -505,7 +525,13 @@ class _FastingCard extends ConsumerWidget {
       );
       if (time == null || !context.mounted) return;
 
-      var start = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+      var start = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
       if (start.isAfter(now)) return;
 
       ref.read(fastingProvider.notifier).editStartTime(start);
@@ -518,7 +544,13 @@ class _FastingCard extends ConsumerWidget {
       );
       if (time == null || !context.mounted) return;
 
-      var endTime = DateTime(now.year, now.month, now.day, time.hour, time.minute);
+      var endTime = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        time.hour,
+        time.minute,
+      );
       if (endTime.isAfter(now)) {
         endTime = endTime.subtract(const Duration(days: 1));
       }
@@ -557,13 +589,15 @@ class _TimeChip extends StatelessWidget {
           children: [
             Row(
               children: [
-                Text(label,
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w600,
-                      color: cs.onSurfaceVariant,
-                      letterSpacing: 0.5,
-                    )),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    color: cs.onSurfaceVariant,
+                    letterSpacing: 0.5,
+                  ),
+                ),
                 if (onTap != null) ...[
                   const Spacer(),
                   Icon(Icons.edit, size: 12, color: cs.primary),
@@ -576,14 +610,16 @@ class _TimeChip extends StatelessWidget {
                 Icon(icon, size: 14, color: cs.primary),
                 const SizedBox(width: 4),
                 Flexible(
-                  child: Text(time,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: cs.onSurface,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
+                  child: Text(
+                    time,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: cs.onSurface,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
@@ -628,9 +664,14 @@ class _FastingStartSectionState extends State<_FastingStartSection> {
             return GestureDetector(
               onTap: () => setState(() => _selectedMinutes = e.value),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
-                  color: selected ? cs.primary.withAlpha(25) : cs.surfaceContainerHighest,
+                  color: selected
+                      ? cs.primary.withAlpha(25)
+                      : cs.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: selected ? cs.primary : cs.outlineVariant,
@@ -693,7 +734,13 @@ class _FastingStartSectionState extends State<_FastingStartSection> {
     );
     if (time == null || !context.mounted) return;
 
-    var start = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    var start = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
     if (start.isAfter(now)) return;
 
     widget.onStart(_selectedMinutes, startTime: start);
@@ -733,12 +780,16 @@ class _CalorieCard extends ConsumerWidget {
                 Text(
                   'Calories',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 if (goalReached) ...[
                   const SizedBox(width: 8),
-                  Icon(Icons.check_circle, color: colorScheme.primary, size: 20),
+                  Icon(
+                    Icons.check_circle,
+                    color: colorScheme.primary,
+                    size: 20,
+                  ),
                 ],
                 const Spacer(),
                 GestureDetector(
@@ -749,11 +800,15 @@ class _CalorieCard extends ConsumerWidget {
                       Text(
                         '$totalCalories / $dailyQuota kcal',
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       const SizedBox(width: 4),
-                      Icon(Icons.edit, size: 14, color: colorScheme.onSurfaceVariant),
+                      Icon(
+                        Icons.edit,
+                        size: 14,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ],
                   ),
                 ),
@@ -763,8 +818,8 @@ class _CalorieCard extends ConsumerWidget {
             Text(
               'Weekly: ${weekly.totalConsumed} / $weeklyGoal kcal',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 12),
             _AnimatedProgressBar(
@@ -772,8 +827,8 @@ class _CalorieCard extends ConsumerWidget {
               color: goalReached
                   ? colorScheme.primary
                   : halfReached
-                      ? const Color(0xFFE85D04)
-                      : colorScheme.error,
+                  ? const Color(0xFFE85D04)
+                  : colorScheme.error,
               backgroundColor: colorScheme.surfaceContainerHighest,
             ),
             if (halfReached && !goalReached) ...[
@@ -781,15 +836,18 @@ class _CalorieCard extends ConsumerWidget {
               Text(
                 'Halfway there!',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: const Color(0xFFE85D04),
-                      fontWeight: FontWeight.w500,
-                    ),
+                  color: const Color(0xFFE85D04),
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
             if (isFasting) ...[
               const SizedBox(height: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: colorScheme.error.withAlpha(15),
                   borderRadius: BorderRadius.circular(8),
@@ -802,7 +860,10 @@ class _CalorieCard extends ConsumerWidget {
                     Expanded(
                       child: Text(
                         'You\'re currently fasting. Adding calories will break your fast.',
-                        style: TextStyle(fontSize: 11, color: colorScheme.error),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: colorScheme.error,
+                        ),
                       ),
                     ),
                   ],
@@ -812,21 +873,29 @@ class _CalorieCard extends ConsumerWidget {
             const SizedBox(height: 16),
             // Quick add row
             Row(
-              children: AppConstants.calorieQuickAdd.map(
-                (amount) => Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: FilledButton.tonal(
-                      onPressed: () {
-                        HapticFeedback.lightImpact();
-                        ref.read(calorieProvider.notifier).addCalories(amount);
-                        _checkMilestone(context, totalCalories + amount, dailyQuota);
-                      },
-                      child: Text('+$amount'),
+              children: AppConstants.calorieQuickAdd
+                  .map(
+                    (amount) => Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: FilledButton.tonal(
+                          onPressed: () {
+                            HapticFeedback.lightImpact();
+                            ref
+                                .read(calorieProvider.notifier)
+                                .addCalories(amount);
+                            _checkMilestone(
+                              context,
+                              totalCalories + amount,
+                              dailyQuota,
+                            );
+                          },
+                          child: Text('+$amount'),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ).toList(),
+                  )
+                  .toList(),
             ),
             const SizedBox(height: 8),
             // Other + Edit row
@@ -836,7 +905,12 @@ class _CalorieCard extends ConsumerWidget {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: OutlinedButton(
-                      onPressed: () => _showCustomCalorieDialog(context, ref, totalCalories, dailyQuota),
+                      onPressed: () => _showCustomCalorieDialog(
+                        context,
+                        ref,
+                        totalCalories,
+                        dailyQuota,
+                      ),
                       child: const Text('Other'),
                     ),
                   ),
@@ -845,7 +919,8 @@ class _CalorieCard extends ConsumerWidget {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: OutlinedButton.icon(
-                      onPressed: () => _showEditCaloriesDialog(context, ref, totalCalories),
+                      onPressed: () =>
+                          _showEditCaloriesDialog(context, ref, totalCalories),
                       icon: const Icon(Icons.edit, size: 16),
                       label: const Text('Edit Total'),
                     ),
@@ -872,7 +947,11 @@ class _CalorieCard extends ConsumerWidget {
     }
   }
 
-  void _showEditGoalDialog(BuildContext context, WidgetRef ref, int currentWeekly) {
+  void _showEditGoalDialog(
+    BuildContext context,
+    WidgetRef ref,
+    int currentWeekly,
+  ) {
     final controller = TextEditingController(text: currentWeekly.toString());
     showDialog(
       context: context,
@@ -900,8 +979,8 @@ class _CalorieCard extends ConsumerWidget {
                 return Text(
                   daily > 0 ? 'That\'s ~$daily kcal/day' : '',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                 );
               },
             ),
@@ -916,7 +995,9 @@ class _CalorieCard extends ConsumerWidget {
             onPressed: () {
               final value = int.tryParse(controller.text);
               if (value != null && value > 0) {
-                ref.read(profileProvider.notifier).updateGoals(
+                ref
+                    .read(profileProvider.notifier)
+                    .updateGoals(
                       weeklyCalorieGoal: value,
                       calorieGoal: (value / 7).round(),
                     );
@@ -930,7 +1011,12 @@ class _CalorieCard extends ConsumerWidget {
     );
   }
 
-  void _showCustomCalorieDialog(BuildContext context, WidgetRef ref, int currentTotal, int goal) {
+  void _showCustomCalorieDialog(
+    BuildContext context,
+    WidgetRef ref,
+    int currentTotal,
+    int goal,
+  ) {
     final controller = TextEditingController();
     showDialog(
       context: context,
@@ -966,7 +1052,11 @@ class _CalorieCard extends ConsumerWidget {
     );
   }
 
-  void _showEditCaloriesDialog(BuildContext context, WidgetRef ref, int currentTotal) {
+  void _showEditCaloriesDialog(
+    BuildContext context,
+    WidgetRef ref,
+    int currentTotal,
+  ) {
     final controller = TextEditingController(text: currentTotal.toString());
     showDialog(
       context: context,
@@ -1031,12 +1121,16 @@ class _WaterCard extends ConsumerWidget {
                 Text(
                   'Water',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 if (goalReached) ...[
                   const SizedBox(width: 8),
-                  Icon(Icons.check_circle, color: colorScheme.primary, size: 20),
+                  Icon(
+                    Icons.check_circle,
+                    color: colorScheme.primary,
+                    size: 20,
+                  ),
                 ],
                 const Spacer(),
                 GestureDetector(
@@ -1047,11 +1141,15 @@ class _WaterCard extends ConsumerWidget {
                       Text(
                         '${waterMl}ml / ${goal}ml',
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       const SizedBox(width: 4),
-                      Icon(Icons.edit, size: 14, color: colorScheme.onSurfaceVariant),
+                      Icon(
+                        Icons.edit,
+                        size: 14,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ],
                   ),
                 ),
@@ -1076,7 +1174,9 @@ class _WaterCard extends ConsumerWidget {
             const SizedBox(height: 12),
             _AnimatedProgressBar(
               progress: progress,
-              color: goalReached ? const Color(0xFFFFBA08) : colorScheme.primary,
+              color: goalReached
+                  ? const Color(0xFFFFBA08)
+                  : colorScheme.primary,
               backgroundColor: colorScheme.surfaceContainerHighest,
             ),
             const SizedBox(height: 16),
@@ -1084,7 +1184,9 @@ class _WaterCard extends ConsumerWidget {
               child: FilledButton.icon(
                 onPressed: () {
                   HapticFeedback.lightImpact();
-                  ref.read(waterProvider.notifier).addWater(AppConstants.waterStepMl);
+                  ref
+                      .read(waterProvider.notifier)
+                      .addWater(AppConstants.waterStepMl);
                   final newTotal = waterMl + AppConstants.waterStepMl;
                   if (newTotal >= goal && waterMl < goal) {
                     HapticFeedback.heavyImpact();
@@ -1107,7 +1209,11 @@ class _WaterCard extends ConsumerWidget {
     );
   }
 
-  void _showEditGoalDialog(BuildContext context, WidgetRef ref, int currentGoal) {
+  void _showEditGoalDialog(
+    BuildContext context,
+    WidgetRef ref,
+    int currentGoal,
+  ) {
     final controller = TextEditingController(text: currentGoal.toString());
     showDialog(
       context: context,
@@ -1131,7 +1237,9 @@ class _WaterCard extends ConsumerWidget {
             onPressed: () {
               final value = int.tryParse(controller.text);
               if (value != null && value > 0) {
-                ref.read(profileProvider.notifier).updateGoals(waterGoalMl: value);
+                ref
+                    .read(profileProvider.notifier)
+                    .updateGoals(waterGoalMl: value);
                 Navigator.pop(ctx);
               }
             },
@@ -1152,8 +1260,9 @@ class _WeightCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final entries = ref.watch(weightProvider);
     final colorScheme = Theme.of(context).colorScheme;
-    final latestWeight =
-        entries.isNotEmpty ? '${entries.last.weight.toStringAsFixed(1)} kg' : '—';
+    final latestWeight = entries.isNotEmpty
+        ? '${entries.last.weight.toStringAsFixed(1)} kg'
+        : '—';
 
     return Card(
       child: Padding(
@@ -1163,20 +1272,23 @@ class _WeightCard extends ConsumerWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.monitor_weight_outlined, color: colorScheme.tertiary),
+                Icon(
+                  Icons.monitor_weight_outlined,
+                  color: colorScheme.tertiary,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Weight',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const Spacer(),
                 Text(
                   latestWeight,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -1297,15 +1409,21 @@ class _NetCaloriesBanner extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _netStat(context, 'Eaten', '$totalCalories', cs.error),
-              Text('−', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 18)),
-              _netStat(context, 'Burned', '${activity.totalBurned}', cs.primary),
-              Text('=', style: TextStyle(color: cs.onSurfaceVariant, fontSize: 18)),
+              Text(
+                '−',
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 18),
+              ),
               _netStat(
                 context,
-                'Net',
-                '$net',
-                isOver ? cs.error : cs.primary,
+                'Burned',
+                '${activity.totalBurned}',
+                cs.primary,
               ),
+              Text(
+                '=',
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 18),
+              ),
+              _netStat(context, 'Net', '$net', isOver ? cs.error : cs.primary),
             ],
           ),
           const SizedBox(height: 8),
@@ -1333,13 +1451,21 @@ class _NetCaloriesBanner extends ConsumerWidget {
     );
   }
 
-  Widget _netStat(BuildContext context, String label, String value, Color color) {
+  Widget _netStat(
+    BuildContext context,
+    String label,
+    String value,
+    Color color,
+  ) {
     return Column(
       children: [
-        Text(label,
-            style: TextStyle(
-                fontSize: 10,
-                color: Theme.of(context).colorScheme.onSurfaceVariant)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
         Text(
           value,
           style: TextStyle(
@@ -1350,10 +1476,13 @@ class _NetCaloriesBanner extends ConsumerWidget {
             color: color,
           ),
         ),
-        Text('kcal',
-            style: TextStyle(
-                fontSize: 9,
-                color: Theme.of(context).colorScheme.onSurfaceVariant)),
+        Text(
+          'kcal',
+          style: TextStyle(
+            fontSize: 9,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
       ],
     );
   }
@@ -1384,9 +1513,12 @@ class _StepsCard extends ConsumerWidget {
               children: [
                 Icon(Icons.directions_walk, color: cs.primary),
                 const SizedBox(width: 8),
-                Text('Steps',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold)),
+                Text(
+                  'Steps',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 if (activity.steps >= stepsGoal) ...[
                   const SizedBox(width: 8),
                   Icon(Icons.check_circle, color: cs.primary, size: 20),
@@ -1394,8 +1526,9 @@ class _StepsCard extends ConsumerWidget {
                 const Spacer(),
                 Text(
                   '${activity.steps} / $stepsGoal',
-                  style: theme.textTheme.bodyLarge
-                      ?.copyWith(fontWeight: FontWeight.w600),
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
@@ -1410,10 +1543,17 @@ class _StepsCard extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _miniStat(context, '${distanceKm.toStringAsFixed(1)} km', 'Distance'),
+                _miniStat(
+                  context,
+                  '${distanceKm.toStringAsFixed(1)} km',
+                  'Distance',
+                ),
                 _miniStat(context, '${activity.stepCalories} kcal', 'Burned'),
-                _miniStat(context, '${(activity.steps / 1312).toStringAsFixed(0)} min',
-                    'Walking time'),
+                _miniStat(
+                  context,
+                  '${(activity.steps / 1312).toStringAsFixed(0)} min',
+                  'Walking time',
+                ),
               ],
             ),
             const SizedBox(height: 14),
@@ -1434,12 +1574,14 @@ class _StepsCard extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
     return Column(
       children: [
-        Text(value,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: cs.onSurface,
-            )),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: cs.onSurface,
+          ),
+        ),
         Text(label, style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
       ],
     );
@@ -1447,7 +1589,8 @@ class _StepsCard extends ConsumerWidget {
 
   void _showStepsInput(BuildContext context, WidgetRef ref, int current) {
     final controller = TextEditingController(
-        text: current > 0 ? current.toString() : '');
+      text: current > 0 ? current.toString() : '',
+    );
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1470,16 +1613,18 @@ class _StepsCard extends ConsumerWidget {
             Text(
               'Check Google Fit, Apple Health, or your\nfitness band for today\'s step count',
               style: TextStyle(
-                  fontSize: 11,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+                fontSize: 11,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
               textAlign: TextAlign.center,
             ),
           ],
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             onPressed: () {
               final v = int.tryParse(controller.text);
@@ -1517,54 +1662,65 @@ class _ActivityCard extends ConsumerWidget {
               children: [
                 Icon(Icons.fitness_center, color: cs.tertiary),
                 const SizedBox(width: 8),
-                Text('Exercise',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold)),
+                Text(
+                  'Exercise',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const Spacer(),
                 Text(
                   '${activity.activityCalories} kcal burned',
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(fontWeight: FontWeight.w600),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
             if (activity.activities.isNotEmpty) ...[
               const SizedBox(height: 12),
-              ...activity.activities.map((a) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 3),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: cs.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            _getEmoji(a.name),
-                            style: const TextStyle(fontSize: 16),
-                          ),
+              ...activity.activities.map(
+                (a) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(a.name,
-                              style: theme.textTheme.bodyMedium),
+                        alignment: Alignment.center,
+                        child: Text(
+                          _getEmoji(a.name),
+                          style: const TextStyle(fontSize: 16),
                         ),
-                        Text('${a.minutes} min',
-                            style: TextStyle(
-                                fontSize: 12, color: cs.onSurfaceVariant)),
-                        const SizedBox(width: 10),
-                        Text('${a.caloriesBurned} kcal',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: cs.tertiary,
-                            )),
-                      ],
-                    ),
-                  )),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(a.name, style: theme.textTheme.bodyMedium),
+                      ),
+                      Text(
+                        '${a.minutes} min',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        '${a.caloriesBurned} kcal',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: cs.tertiary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
             const SizedBox(height: 14),
             Center(
@@ -1613,20 +1769,20 @@ class _ActivityCard extends ConsumerWidget {
                     children: activityPresets.map((preset) {
                       final isSelected = selected.name == preset.name;
                       return GestureDetector(
-                        onTap: () =>
-                            setDialogState(() => selected = preset),
+                        onTap: () => setDialogState(() => selected = preset),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? Theme.of(context)
-                                    .colorScheme
-                                    .primary
-                                    .withAlpha(25)
-                                : Theme.of(context)
-                                    .colorScheme
-                                    .surfaceContainerHighest,
+                                ? Theme.of(
+                                    context,
+                                  ).colorScheme.primary.withAlpha(25)
+                                : Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: isSelected
@@ -1662,18 +1818,19 @@ class _ActivityCard extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withAlpha(15),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withAlpha(15),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.local_fire_department,
-                            size: 16,
-                            color: Theme.of(context).colorScheme.tertiary),
+                        Icon(
+                          Icons.local_fire_department,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.tertiary,
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           'Estimated burn: $estBurn kcal',
@@ -1690,17 +1847,16 @@ class _ActivityCard extends ConsumerWidget {
             ),
             actions: [
               TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancel')),
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
               FilledButton(
                 onPressed: () {
                   final mins = int.tryParse(minutesCtrl.text);
                   if (mins != null && mins > 0) {
-                    ref.read(activityProvider.notifier).addActivity(
-                          selected.name,
-                          mins,
-                          selected.met,
-                        );
+                    ref
+                        .read(activityProvider.notifier)
+                        .addActivity(selected.name, mins, selected.met);
                     Navigator.pop(ctx);
                   }
                 },
@@ -1756,24 +1912,31 @@ class _SleepCard extends ConsumerWidget {
               children: [
                 Icon(Icons.bedtime, color: cs.secondary),
                 const SizedBox(width: 8),
-                Text('Sleep',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold)),
+                Text(
+                  'Sleep',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const Spacer(),
                 if (hasSleep)
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: qualityColor.withAlpha(20),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(qualityLabel,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: qualityColor,
-                        )),
+                    child: Text(
+                      qualityLabel,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: qualityColor,
+                      ),
+                    ),
                   ),
               ],
             ),
@@ -1782,12 +1945,27 @@ class _SleepCard extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _sleepStat(context, activity.bedtime, 'Bedtime',
-                      Icons.nights_stay, cs.secondary),
-                  _sleepStat(context, activity.wakeTime, 'Wake up',
-                      Icons.wb_sunny, cs.primary),
-                  _sleepStat(context, '${hours}h ${mins}m', 'Duration',
-                      Icons.hourglass_bottom, qualityColor),
+                  _sleepStat(
+                    context,
+                    activity.bedtime,
+                    'Bedtime',
+                    Icons.nights_stay,
+                    cs.secondary,
+                  ),
+                  _sleepStat(
+                    context,
+                    activity.wakeTime,
+                    'Wake up',
+                    Icons.wb_sunny,
+                    cs.primary,
+                  ),
+                  _sleepStat(
+                    context,
+                    '${hours}h ${mins}m',
+                    'Duration',
+                    Icons.hourglass_bottom,
+                    qualityColor,
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -1810,8 +1988,10 @@ class _SleepCard extends ConsumerWidget {
               ),
             ] else
               Center(
-                child: Text('No sleep logged yet',
-                    style: TextStyle(color: cs.onSurfaceVariant)),
+                child: Text(
+                  'No sleep logged yet',
+                  style: TextStyle(color: cs.onSurfaceVariant),
+                ),
               ),
             const SizedBox(height: 12),
             Center(
@@ -1827,19 +2007,26 @@ class _SleepCard extends ConsumerWidget {
     );
   }
 
-  Widget _sleepStat(BuildContext context, String value, String label,
-      IconData icon, Color color) {
+  Widget _sleepStat(
+    BuildContext context,
+    String value,
+    String label,
+    IconData icon,
+    Color color,
+  ) {
     final cs = Theme.of(context).colorScheme;
     return Column(
       children: [
         Icon(icon, size: 18, color: color),
         const SizedBox(height: 4),
-        Text(value,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: cs.onSurface,
-            )),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: cs.onSurface,
+          ),
+        ),
         Text(label, style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
       ],
     );
@@ -1872,7 +2059,9 @@ class _SleepCard extends ConsumerWidget {
     // Cap at 16 hours
     if (duration > 16 * 60) duration = 16 * 60;
 
-    ref.read(activityProvider.notifier).updateSleep(
+    ref
+        .read(activityProvider.notifier)
+        .updateSleep(
           bedtime:
               '${bedtime.hour.toString().padLeft(2, '0')}:${bedtime.minute.toString().padLeft(2, '0')}',
           wakeTime:

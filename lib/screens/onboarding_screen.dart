@@ -90,8 +90,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               const SizedBox(height: 4),
               Text(
                 _stepSubtitle,
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(color: cs.onSurfaceVariant),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
@@ -124,20 +125,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   String get _stepTitle => switch (_step) {
-        0 => 'Welcome to FitGo',
-        1 => 'About You',
-        2 => 'Your Goal',
-        3 => 'Your Plan',
-        _ => '',
-      };
+    0 => 'Welcome to FitGo',
+    1 => 'About You',
+    2 => 'Your Goal',
+    3 => 'Your Plan',
+    _ => '',
+  };
 
   String get _stepSubtitle => switch (_step) {
-        0 => 'Choose your gender',
-        1 => 'Help us calculate your needs',
-        2 => 'Set your weekly calorie budget',
-        3 => 'Review and get started',
-        _ => '',
-      };
+    0 => 'Choose your gender',
+    1 => 'Help us calculate your needs',
+    2 => 'Set your weekly calorie budget',
+    3 => 'Review and get started',
+    _ => '',
+  };
 
   Widget _buildStep() {
     return switch (_step) {
@@ -166,7 +167,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _genderCard(
-      String label, IconData icon, String value, ColorScheme cs) {
+    String label,
+    IconData icon,
+    String value,
+    ColorScheme cs,
+  ) {
     final selected = _gender == value;
     return GestureDetector(
       onTap: () => setState(() => _gender = value),
@@ -177,8 +182,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         decoration: BoxDecoration(
           color: selected ? cs.primaryContainer : cs.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(20),
-          border:
-              Border.all(color: selected ? cs.primary : Colors.transparent, width: 2),
+          border: Border.all(
+            color: selected ? cs.primary : Colors.transparent,
+            width: 2,
+          ),
           boxShadow: selected
               ? [BoxShadow(color: cs.primary.withAlpha(30), blurRadius: 12)]
               : null,
@@ -186,15 +193,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon,
-                size: 52,
-                color: selected ? cs.primary : cs.onSurfaceVariant),
+            Icon(
+              icon,
+              size: 52,
+              color: selected ? cs.primary : cs.onSurfaceVariant,
+            ),
             const SizedBox(height: 8),
-            Text(label,
-                style: TextStyle(
-                  fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-                  color: selected ? cs.primary : cs.onSurfaceVariant,
-                )),
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                color: selected ? cs.primary : cs.onSurfaceVariant,
+              ),
+            ),
           ],
         ),
       ),
@@ -210,93 +221,97 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return Column(
       children: [
         // DOB Picker
-          GestureDetector(
-            onTap: _pickDob,
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                    color: _dob != null ? cs.primary : cs.outlineVariant),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.cake_outlined, color: cs.primary),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Date of Birth',
-                            style: theme.textTheme.bodySmall
-                                ?.copyWith(color: cs.onSurfaceVariant)),
-                        Text(
-                          _dob != null
-                              ? '${DateFormat('dd MMM yyyy').format(_dob!)}  ·  $_age years old'
-                              : 'Tap to select',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: _dob != null
-                                ? cs.onSurface
-                                : cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(Icons.calendar_today, size: 18, color: cs.primary),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          // Weight slider
-          _sliderCard(
-            icon: Icons.monitor_weight_outlined,
-            label: 'Weight',
-            value: _weight,
-            unit: 'kg',
-            min: 30,
-            max: 200,
-            divisions: 170,
-            onChanged: (v) => setState(() => _weight = v),
-          ),
-          const SizedBox(height: 16),
-          // Height slider
-          _sliderCard(
-            icon: Icons.height,
-            label: 'Height',
-            value: _height,
-            unit: 'cm',
-            min: 100,
-            max: 220,
-            divisions: 120,
-            onChanged: (v) => setState(() => _height = v),
-          ),
-          const SizedBox(height: 16),
-          // Live TDEE preview
-          Container(
-            padding: const EdgeInsets.all(14),
+        GestureDetector(
+          onTap: _pickDob,
+          child: Container(
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: cs.primary.withAlpha(15),
-              borderRadius: BorderRadius.circular(12),
+              color: cs.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: _dob != null ? cs.primary : cs.outlineVariant,
+              ),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.bolt, size: 18, color: cs.primary),
-                const SizedBox(width: 6),
-                Text(
-                  'Your estimated TDEE: $_calcTdee kcal/day',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: cs.primary,
+                Icon(Icons.cake_outlined, color: cs.primary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Date of Birth',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                      Text(
+                        _dob != null
+                            ? '${DateFormat('dd MMM yyyy').format(_dob!)}  ·  $_age years old'
+                            : 'Tap to select',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: _dob != null
+                              ? cs.onSurface
+                              : cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                Icon(Icons.calendar_today, size: 18, color: cs.primary),
               ],
             ),
           ),
+        ),
+        const SizedBox(height: 24),
+        // Weight slider
+        _sliderCard(
+          icon: Icons.monitor_weight_outlined,
+          label: 'Weight',
+          value: _weight,
+          unit: 'kg',
+          min: 30,
+          max: 200,
+          divisions: 170,
+          onChanged: (v) => setState(() => _weight = v),
+        ),
+        const SizedBox(height: 16),
+        // Height slider
+        _sliderCard(
+          icon: Icons.height,
+          label: 'Height',
+          value: _height,
+          unit: 'cm',
+          min: 100,
+          max: 220,
+          divisions: 120,
+          onChanged: (v) => setState(() => _height = v),
+        ),
+        const SizedBox(height: 16),
+        // Live TDEE preview
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: cs.primary.withAlpha(15),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.bolt, size: 18, color: cs.primary),
+              const SizedBox(width: 6),
+              Text(
+                'Your estimated TDEE: $_calcTdee kcal/day',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: cs.primary,
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -373,52 +388,57 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return Column(
       children: [
         // Preset goals
-          _goalOption(
-            'Lose Weight',
-            'Deficit of 500 kcal/day',
-            Icons.trending_down,
-            const Color(0xFFFFBA08),
-            'lose',
-          ),
-          const SizedBox(height: 10),
-          _goalOption(
-            'Maintain Weight',
-            'Balanced intake at TDEE',
-            Icons.balance,
-            cs.primary,
-            'maintain',
-          ),
-          const SizedBox(height: 10),
-          _goalOption(
-            'Gain Weight',
-            'Surplus of 300 kcal/day',
-            Icons.trending_up,
-            const Color(0xFFE85D04),
-            'gain',
-          ),
-          const SizedBox(height: 10),
-          _goalOption(
-            'Custom Budget',
-            'Set your own weekly target',
-            Icons.tune,
-            cs.tertiary,
-            'custom',
-          ),
-          const SizedBox(height: 20),
+        _goalOption(
+          'Lose Weight',
+          'Deficit of 500 kcal/day',
+          Icons.trending_down,
+          const Color(0xFFFFBA08),
+          'lose',
+        ),
+        const SizedBox(height: 10),
+        _goalOption(
+          'Maintain Weight',
+          'Balanced intake at TDEE',
+          Icons.balance,
+          cs.primary,
+          'maintain',
+        ),
+        const SizedBox(height: 10),
+        _goalOption(
+          'Gain Weight',
+          'Surplus of 300 kcal/day',
+          Icons.trending_up,
+          const Color(0xFFE85D04),
+          'gain',
+        ),
+        const SizedBox(height: 10),
+        _goalOption(
+          'Custom Budget',
+          'Set your own weekly target',
+          Icons.tune,
+          cs.tertiary,
+          'custom',
+        ),
+        const SizedBox(height: 20),
 
-          // Show calculated or custom input
-          AnimatedSize(
-            duration: const Duration(milliseconds: 300),
-            child: _useCustomWeekly
-                ? _buildCustomInput()
-                : _buildCalculatedPreview(),
+        // Show calculated or custom input
+        AnimatedSize(
+          duration: const Duration(milliseconds: 300),
+          child: _useCustomWeekly
+              ? _buildCustomInput()
+              : _buildCalculatedPreview(),
         ),
       ],
     );
   }
 
   Widget _goalOption(
-      String title, String subtitle, IconData icon, Color color, String value) {
+    String title,
+    String subtitle,
+    IconData icon,
+    Color color,
+    String value,
+  ) {
     final cs = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
     final selected = _weightGoal == value;
@@ -439,8 +459,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         decoration: BoxDecoration(
           color: selected ? color.withAlpha(20) : cs.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(14),
-          border:
-              Border.all(color: selected ? color : Colors.transparent, width: 2),
+          border: Border.all(
+            color: selected ? color : Colors.transparent,
+            width: 2,
+          ),
         ),
         child: Row(
           children: [
@@ -453,23 +475,30 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     : cs.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon,
-                  size: 20,
-                  color: selected ? color : cs.onSurfaceVariant),
+              child: Icon(
+                icon,
+                size: 20,
+                color: selected ? color : cs.onSurfaceVariant,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: selected ? color : cs.onSurface,
-                      )),
-                  Text(subtitle,
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: cs.onSurfaceVariant)),
+                  Text(
+                    title,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: selected ? color : cs.onSurface,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -536,8 +565,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget _buildCustomInput() {
     final cs = Theme.of(context).colorScheme;
     final customVal = int.tryParse(_weeklyCtrl.text);
-    final daily =
-        customVal != null && customVal > 0 ? (customVal / 7).round() : 0;
+    final daily = customVal != null && customVal > 0
+        ? (customVal / 7).round()
+        : 0;
 
     return Column(
       children: [
@@ -593,14 +623,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               _previewStat('Your TDEE', '$tdee', 'kcal/day', cs.primary),
               Container(width: 1, height: 36, color: cs.outlineVariant),
               _previewStat(
-                isDeficit ? 'Deficit' : isSurplus ? 'Surplus' : 'Balanced',
+                isDeficit
+                    ? 'Deficit'
+                    : isSurplus
+                    ? 'Surplus'
+                    : 'Balanced',
                 '${deficit.abs()}',
                 'kcal/day',
                 isDeficit
                     ? const Color(0xFFFFBA08)
                     : isSurplus
-                        ? const Color(0xFFE85D04)
-                        : cs.primary,
+                    ? const Color(0xFFE85D04)
+                    : cs.primary,
               ),
             ],
           ),
@@ -616,13 +650,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('How it works:',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(fontWeight: FontWeight.bold)),
+                Text(
+                  'How it works:',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(height: 6),
                 _mathRow('Weekly budget', '$weekly kcal', cs.onSurface),
-                _mathRow('Daily intake', '$weekly / 7 = $daily kcal', cs.onSurface),
-                _mathRow('Your body burns', '$tdee kcal/day (TDEE)', cs.primary),
+                _mathRow(
+                  'Daily intake',
+                  '$weekly / 7 = $daily kcal',
+                  cs.onSurface,
+                ),
+                _mathRow(
+                  'Your body burns',
+                  '$tdee kcal/day (TDEE)',
+                  cs.primary,
+                ),
                 const Divider(height: 12),
                 _mathRow(
                   isDeficit ? 'Daily deficit' : 'Daily surplus',
@@ -704,7 +749,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       _projectedWeight('Now', _weight, cs.onSurface),
-                      Icon(Icons.arrow_forward, size: 14, color: cs.outlineVariant),
+                      Icon(
+                        Icons.arrow_forward,
+                        size: 14,
+                        color: cs.outlineVariant,
+                      ),
                       _projectedWeight(
                         '1 Month',
                         isDeficit
@@ -714,7 +763,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             ? const Color(0xFFFFBA08)
                             : const Color(0xFFE85D04),
                       ),
-                      Icon(Icons.arrow_forward, size: 14, color: cs.outlineVariant),
+                      Icon(
+                        Icons.arrow_forward,
+                        size: 14,
+                        color: cs.outlineVariant,
+                      ),
                       _projectedWeight(
                         '3 Months',
                         isDeficit
@@ -770,7 +823,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+          ),
           Text(
             value,
             style: TextStyle(
@@ -789,10 +845,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget _weightPrediction(String period, String amount, bool isLoss) {
     return Column(
       children: [
-        Text(period,
-            style: TextStyle(
-                fontSize: 10,
-                color: Theme.of(context).colorScheme.onSurfaceVariant)),
+        Text(
+          period,
+          style: TextStyle(
+            fontSize: 10,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
         const SizedBox(height: 2),
         Text(
           '${isLoss ? "-" : "+"}$amount',
@@ -811,10 +870,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget _projectedWeight(String label, double weight, Color color) {
     return Column(
       children: [
-        Text(label,
-            style: TextStyle(
-                fontSize: 9,
-                color: Theme.of(context).colorScheme.onSurfaceVariant)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 9,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
         Text(
           '${weight.toStringAsFixed(1)} kg',
           style: TextStyle(
@@ -831,22 +893,30 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final theme = Theme.of(context);
     return Column(
       children: [
-        Text(label,
-            style: TextStyle(
-                fontSize: 10,
-                color: theme.colorScheme.onSurfaceVariant)),
-        Text(value,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'monospace',
-              fontFeatures: const [FontFeature.tabularFigures()],
-              color: color,
-            )),
-        Text(unit,
-            style: TextStyle(
-                fontSize: 9,
-                color: theme.colorScheme.onSurfaceVariant)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'monospace',
+            fontFeatures: const [FontFeature.tabularFigures()],
+            color: color,
+          ),
+        ),
+        Text(
+          unit,
+          style: TextStyle(
+            fontSize: 9,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
       ],
     );
   }
@@ -866,97 +936,113 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         // Big weekly budget card
         Container(
           width: double.infinity,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [cs.primary.withAlpha(30), cs.primary.withAlpha(10)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [cs.primary.withAlpha(30), cs.primary.withAlpha(10)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: cs.primary.withAlpha(40)),
+          ),
+          child: Column(
+            children: [
+              Text(
+                'Weekly Budget',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
               ),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: cs.primary.withAlpha(40)),
-            ),
-            child: Column(
-              children: [
-                Text('Weekly Budget',
-                    style: theme.textTheme.bodyMedium
-                        ?.copyWith(color: cs.onSurfaceVariant)),
-                const SizedBox(height: 4),
-                Text(
-                  '$weekly kcal',
-                  style: theme.textTheme.headlineLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'monospace',
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                    color: cs.primary,
-                  ),
+              const SizedBox(height: 4),
+              Text(
+                '$weekly kcal',
+                style: theme.textTheme.headlineLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'monospace',
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                  color: cs.primary,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '~$daily kcal/day  ·  ${surplus >= 0 ? "+$surplus" : "$surplus"} vs TDEE',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '~$daily kcal/day  ·  ${surplus >= 0 ? "+$surplus" : "$surplus"} vs TDEE',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Stats grid
-          Row(
-            children: [
-              _summaryCard(Icons.local_fire_department, cs.error,
-                  'Daily Calories', '$daily kcal'),
-              const SizedBox(width: 10),
-              _summaryCard(
-                  Icons.water_drop, const Color(0xFFF48C06), 'Daily Water', '$waterGoal ml'),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              _summaryCard(Icons.bolt, cs.primary, 'Your TDEE',
-                  '$_calcTdee kcal'),
-              const SizedBox(width: 10),
-              _summaryCard(
-                Icons.trending_down,
-                surplus >= 0 ? const Color(0xFFE85D04) : const Color(0xFFFFBA08),
-                surplus >= 0 ? 'Daily Surplus' : 'Daily Deficit',
-                '${surplus.abs()} kcal',
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          // User info
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(12),
+        ),
+        const SizedBox(height: 16),
+        // Stats grid
+        Row(
+          children: [
+            _summaryCard(
+              Icons.local_fire_department,
+              cs.error,
+              'Daily Calories',
+              '$daily kcal',
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _infoPill('${_weight.toStringAsFixed(0)} kg'),
-                _infoPill('${_height.toStringAsFixed(0)} cm'),
-                _infoPill('$_age yrs'),
-                _infoPill(_gender),
-                _infoPill(_goalLabel),
-              ],
+            const SizedBox(width: 10),
+            _summaryCard(
+              Icons.water_drop,
+              const Color(0xFFF48C06),
+              'Daily Water',
+              '$waterGoal ml',
             ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            _summaryCard(
+              Icons.bolt,
+              cs.primary,
+              'Your TDEE',
+              '$_calcTdee kcal',
+            ),
+            const SizedBox(width: 10),
+            _summaryCard(
+              Icons.trending_down,
+              surplus >= 0 ? const Color(0xFFE85D04) : const Color(0xFFFFBA08),
+              surplus >= 0 ? 'Daily Surplus' : 'Daily Deficit',
+              '${surplus.abs()} kcal',
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        // User info
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(12),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'You can change any of these later',
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: cs.onSurfaceVariant),
-            textAlign: TextAlign.center,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _infoPill('${_weight.toStringAsFixed(0)} kg'),
+              _infoPill('${_height.toStringAsFixed(0)} cm'),
+              _infoPill('$_age yrs'),
+              _infoPill(_gender),
+              _infoPill(_goalLabel),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'You can change any of these later',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: cs.onSurfaceVariant,
+          ),
+          textAlign: TextAlign.center,
         ),
       ],
     );
   }
 
-  Widget _summaryCard(
-      IconData icon, Color color, String label, String value) {
+  Widget _summaryCard(IconData icon, Color color, String label, String value) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     return Expanded(
@@ -974,12 +1060,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label,
-                      style: TextStyle(
-                          fontSize: 10, color: cs.onSurfaceVariant)),
-                  Text(value,
-                      style: theme.textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(
+                    label,
+                    style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+                  ),
+                  Text(
+                    value,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -997,16 +1087,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         color: cs.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(text, style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+      ),
     );
   }
 
   String get _goalLabel => switch (_weightGoal) {
-        'lose' => 'Lose',
-        'gain' => 'Gain',
-        'custom' => 'Custom',
-        _ => 'Maintain',
-      };
+    'lose' => 'Lose',
+    'gain' => 'Gain',
+    'custom' => 'Custom',
+    _ => 'Maintain',
+  };
 
   // ─── Navigation ──────────────────────────────────────────────────────────
 

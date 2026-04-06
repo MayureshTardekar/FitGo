@@ -95,8 +95,10 @@ class ActivityNotifier extends Notifier<ActivityState> {
       }
     }
 
-    final activityCals =
-        activities.fold<int>(0, (sum, a) => sum + a.caloriesBurned);
+    final activityCals = activities.fold<int>(
+      0,
+      (sum, a) => sum + a.caloriesBurned,
+    );
     final stepCals = _calcStepCalories(today.steps, weightKg);
 
     return ActivityState(
@@ -196,5 +198,6 @@ class ActivityNotifier extends Notifier<ActivityState> {
   }
 }
 
-final activityProvider =
-    NotifierProvider<ActivityNotifier, ActivityState>(ActivityNotifier.new);
+final activityProvider = NotifierProvider<ActivityNotifier, ActivityState>(
+  ActivityNotifier.new,
+);

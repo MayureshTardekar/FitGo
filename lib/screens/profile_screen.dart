@@ -31,21 +31,23 @@ class _ProfileBody extends ConsumerWidget {
       return const Center(child: Text('No profile found'));
     }
 
-    final bmi = profile.weightKg / ((profile.heightCm / 100) * (profile.heightCm / 100));
+    final bmi =
+        profile.weightKg /
+        ((profile.heightCm / 100) * (profile.heightCm / 100));
     final bmiCategory = bmi < 18.5
         ? 'Underweight'
         : bmi < 25
-            ? 'Normal'
-            : bmi < 30
-                ? 'Overweight'
-                : 'Obese';
+        ? 'Normal'
+        : bmi < 30
+        ? 'Overweight'
+        : 'Obese';
     final bmiColor = bmi < 18.5
         ? const Color(0xFFE85D04)
         : bmi < 25
-            ? cs.primary
-            : bmi < 30
-                ? const Color(0xFFE85D04)
-                : cs.error;
+        ? cs.primary
+        : bmi < 30
+        ? const Color(0xFFE85D04)
+        : cs.error;
 
     final dailyFromWeekly = (profile.weeklyCalorieGoal / 7).round();
     final deficit = profile.tdee - dailyFromWeekly;
@@ -69,8 +71,9 @@ class _ProfileBody extends ConsumerWidget {
               const SizedBox(height: 12),
               Text(
                 '${profile.age} years old  ·  ${profile.gender[0].toUpperCase()}${profile.gender.substring(1)}',
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(color: cs.onSurfaceVariant),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
               ),
             ],
           ),
@@ -87,23 +90,30 @@ class _ProfileBody extends ConsumerWidget {
                   children: [
                     Icon(Icons.monitor_heart, color: bmiColor),
                     const SizedBox(width: 8),
-                    Text('BMI',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold)),
+                    Text(
+                      'BMI',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const Spacer(),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: bmiColor.withAlpha(20),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Text(bmiCategory,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: bmiColor,
-                          )),
+                      child: Text(
+                        bmiCategory,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: bmiColor,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -124,17 +134,15 @@ class _ProfileBody extends ConsumerWidget {
                     child: Row(
                       children: [
                         Expanded(
-                            flex: 185,
-                            child: Container(color: const Color(0xFFE85D04))),
+                          flex: 185,
+                          child: Container(color: const Color(0xFFE85D04)),
+                        ),
+                        Expanded(flex: 65, child: Container(color: cs.primary)),
                         Expanded(
-                            flex: 65,
-                            child: Container(color: cs.primary)),
-                        Expanded(
-                            flex: 50,
-                            child: Container(color: const Color(0xFFE85D04))),
-                        Expanded(
-                            flex: 200,
-                            child: Container(color: cs.error)),
+                          flex: 50,
+                          child: Container(color: const Color(0xFFE85D04)),
+                        ),
+                        Expanded(flex: 200, child: Container(color: cs.error)),
                       ],
                     ),
                   ),
@@ -161,23 +169,34 @@ class _ProfileBody extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Body Stats',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold)),
+                Text(
+                  'Body Stats',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(height: 16),
                 _DetailRow(
                   icon: Icons.monitor_weight_outlined,
                   label: 'Weight',
                   value: '${profile.weightKg.toStringAsFixed(1)} kg',
-                  onEdit: () => _editField(context, ref, 'weight',
-                      profile.weightKg.toString()),
+                  onEdit: () => _editField(
+                    context,
+                    ref,
+                    'weight',
+                    profile.weightKg.toString(),
+                  ),
                 ),
                 _DetailRow(
                   icon: Icons.height,
                   label: 'Height',
                   value: '${profile.heightCm.toStringAsFixed(0)} cm',
-                  onEdit: () => _editField(context, ref, 'height',
-                      profile.heightCm.toString()),
+                  onEdit: () => _editField(
+                    context,
+                    ref,
+                    'height',
+                    profile.heightCm.toString(),
+                  ),
                 ),
                 _DetailRow(
                   icon: Icons.cake_outlined,
@@ -187,7 +206,8 @@ class _ProfileBody extends ConsumerWidget {
                 _DetailRow(
                   icon: Icons.person_outline,
                   label: 'Gender',
-                  value: '${profile.gender[0].toUpperCase()}${profile.gender.substring(1)}',
+                  value:
+                      '${profile.gender[0].toUpperCase()}${profile.gender.substring(1)}',
                 ),
               ],
             ),
@@ -202,21 +222,28 @@ class _ProfileBody extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Your Goals',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold)),
+                Text(
+                  'Your Goals Budget',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(height: 16),
                 _DetailRow(
-                  icon: Icons.bolt,
-                  label: 'TDEE',
-                  value: '${profile.tdee} kcal/day',
+                  icon: Icons.calendar_month,
+                  label: 'Monthly Budget',
+                  value: '${(profile.weeklyCalorieGoal / 7 * 30).round()} kcal',
+                  onEdit: () => _editField(
+                    context,
+                    ref,
+                    'monthlyCalories',
+                    (profile.weeklyCalorieGoal / 7 * 30).round().toString(),
+                  ),
                 ),
                 _DetailRow(
                   icon: Icons.date_range,
-                  label: 'Weekly Budget',
+                  label: 'Weekly Target',
                   value: '${profile.weeklyCalorieGoal} kcal',
-                  onEdit: () => _editField(context, ref, 'weeklyCalories',
-                      profile.weeklyCalorieGoal.toString()),
                 ),
                 _DetailRow(
                   icon: Icons.local_fire_department,
@@ -224,23 +251,76 @@ class _ProfileBody extends ConsumerWidget {
                   value: '$dailyFromWeekly kcal/day',
                 ),
                 _DetailRow(
-                  icon: Icons.trending_down,
-                  label: deficit >= 0 ? 'Daily Deficit' : 'Daily Surplus',
-                  value: '${deficit.abs()} kcal',
-                  valueColor: deficit >= 0 ? cs.primary : const Color(0xFFE85D04),
-                ),
-                _DetailRow(
                   icon: Icons.water_drop,
                   label: 'Water Goal',
                   value: '${profile.waterGoalMl} ml/day',
-                  onEdit: () => _editField(context, ref, 'water',
-                      profile.waterGoalMl.toString()),
+                  onEdit: () => _editField(
+                    context,
+                    ref,
+                    'water',
+                    profile.waterGoalMl.toString(),
+                  ),
                 ),
                 _DetailRow(
                   icon: Icons.flag_outlined,
                   label: 'Weight Goal',
                   value: _goalLabel(profile.weightGoal),
                 ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        
+        // Advanced Projections Math View
+        Card(
+          clipBehavior: Clip.antiAlias,
+          child: Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              leading: Icon(Icons.calculate, color: cs.primary),
+              title: Text(
+                'Weight Loss Projection',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              subtitle: Text(
+                deficit == 0 
+                  ? 'Maintaining current weight' 
+                  : (deficit > 0 
+                      ? 'Losing ~${((deficit * 30) / 7700).toStringAsFixed(1)} kg / month' 
+                      : 'Gaining ~${((deficit.abs() * 30) / 7700).toStringAsFixed(1)} kg / month'),
+                style: TextStyle(color: cs.primary, fontWeight: FontWeight.w600),
+              ),
+              childrenPadding: const EdgeInsets.only(left: 20, right: 20, bottom: 20),
+              expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Divider(),
+                const SizedBox(height: 12),
+                _MathRow(label: 'Maintenance (TDEE)', value: '${profile.tdee} kcal/day'),
+                _MathRow(label: 'Daily Target', value: '$dailyFromWeekly kcal/day'),
+                _MathRow(
+                  label: deficit >= 0 ? 'Daily Deficit' : 'Daily Surplus', 
+                  value: deficit >= 0 ? '-${deficit.abs()} kcal/day' : '+${deficit.abs()} kcal/day',
+                  isHighlight: true,
+                  color: deficit >= 0 ? cs.primary : const Color(0xFFE85D04),
+                ),
+                const SizedBox(height: 12),
+                _MathRow(
+                  label: 'Monthly Impact', 
+                  value: '${deficit.abs() * 30} kcal',
+                ),
+                _MathRow(
+                  label: 'Equivalent Weight', 
+                  value: '${((deficit.abs() * 30) / 7700).toStringAsFixed(2)} kg',
+                  isHighlight: true,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '*Based on 7700 kcal = 1kg. Actual results may vary.',
+                  style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurface.withOpacity(0.5)),
+                )
               ],
             ),
           ),
@@ -254,9 +334,12 @@ class _ProfileBody extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Account',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold)),
+                Text(
+                  'Account',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(height: 12),
                 _DetailRow(
                   icon: Icons.cloud,
@@ -272,7 +355,10 @@ class _ProfileBody extends ConsumerWidget {
                     children: [
                       Icon(Icons.email_outlined, size: 20, color: cs.primary),
                       const SizedBox(width: 12),
-                      Text('Email', style: TextStyle(color: cs.onSurfaceVariant)),
+                      Text(
+                        'Email',
+                        style: TextStyle(color: cs.onSurfaceVariant),
+                      ),
                     ],
                   ),
                   Padding(
@@ -289,11 +375,61 @@ class _ProfileBody extends ConsumerWidget {
         ),
         const SizedBox(height: 16),
 
-        // Action buttons
         FilledButton.tonalIcon(
           onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+            showDialog(
+              context: context,
+              builder: (dCtx) => AlertDialog(
+                title: const Text('Redo Full Setup?'),
+                content: const Text('This will take you to the initial setup screen and overwrite your existing goals. Are you completely sure?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dCtx),
+                    child: const Text('Cancel'),
+                  ),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+                    onPressed: () {
+                      Navigator.pop(dCtx); // Close dialog
+
+                      bool isCancelled = false;
+                      final scaffoldMessenger = ScaffoldMessenger.of(context);
+                      
+                      scaffoldMessenger.clearSnackBars();
+                      scaffoldMessenger.showSnackBar(
+                        SnackBar(
+                          content: const Text('Navigating to setup in 5 seconds...'),
+                          duration: const Duration(seconds: 5),
+                          behavior: SnackBarBehavior.floating,
+                          action: SnackBarAction(
+                            label: 'CANCEL (5s)',
+                            textColor: Colors.yellow,
+                            onPressed: () {
+                              isCancelled = true;
+                              scaffoldMessenger.showSnackBar(
+                                const SnackBar(
+                                  content: Text('Action cancelled. Setup aborted.'),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      );
+
+                      Future.delayed(const Duration(seconds: 5), () {
+                        if (!isCancelled && context.mounted) {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+                          );
+                        }
+                      });
+                    },
+                    icon: const Icon(Icons.warning_amber_rounded, size: 18),
+                    label: const Text('Proceed'),
+                  ),
+                ],
+              ),
             );
           },
           icon: const Icon(Icons.refresh),
@@ -325,14 +461,18 @@ class _ProfileBody extends ConsumerWidget {
       TextStyle(fontSize: 9, color: cs.onSurfaceVariant);
 
   String _goalLabel(String goal) => switch (goal) {
-        'lose' => 'Lose Weight',
-        'gain' => 'Gain Weight',
-        'custom' => 'Custom Budget',
-        _ => 'Maintain Weight',
-      };
+    'lose' => 'Lose Weight',
+    'gain' => 'Gain Weight',
+    'custom' => 'Custom Budget',
+    _ => 'Maintain Weight',
+  };
 
   void _editField(
-      BuildContext context, WidgetRef ref, String field, String current) {
+    BuildContext context,
+    WidgetRef ref,
+    String field,
+    String current,
+  ) {
     final controller = TextEditingController(text: current);
     String label;
     String suffix;
@@ -346,6 +486,9 @@ class _ProfileBody extends ConsumerWidget {
       case 'weeklyCalories':
         label = 'Weekly Calorie Budget';
         suffix = 'kcal/week';
+      case 'monthlyCalories':
+        label = 'Monthly Calorie Budget';
+        suffix = 'kcal/mo';
       case 'water':
         label = 'Daily Water Goal';
         suffix = 'ml';
@@ -369,8 +512,9 @@ class _ProfileBody extends ConsumerWidget {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             onPressed: () {
               final v = double.tryParse(controller.text);
@@ -390,14 +534,25 @@ class _ProfileBody extends ConsumerWidget {
                     ref.read(profileProvider.notifier).saveProfile(p);
                   }
                 case 'weeklyCalories':
-                  ref.read(profileProvider.notifier).updateGoals(
+                  ref
+                      .read(profileProvider.notifier)
+                      .updateGoals(
                         weeklyCalorieGoal: v.toInt(),
                         calorieGoal: (v / 7).round(),
                       );
-                case 'water':
-                  ref.read(profileProvider.notifier).updateGoals(
-                        waterGoalMl: v.toInt(),
+                case 'monthlyCalories':
+                  final daily = (v / 30).round();
+                  final weekly = daily * 7;
+                  ref
+                      .read(profileProvider.notifier)
+                      .updateGoals(
+                        weeklyCalorieGoal: weekly,
+                        calorieGoal: daily,
                       );
+                case 'water':
+                  ref
+                      .read(profileProvider.notifier)
+                      .updateGoals(waterGoalMl: v.toInt());
               }
               Navigator.pop(ctx);
             },
@@ -449,6 +604,50 @@ class _DetailRow extends StatelessWidget {
               child: Icon(Icons.edit, size: 14, color: cs.onSurfaceVariant),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MathRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isHighlight;
+  final Color? color;
+
+  const _MathRow({
+    required this.label,
+    required this.value,
+    this.isHighlight = false,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(
+              label, 
+              style: TextStyle(
+                color: isHighlight ? (color ?? cs.onSurface) : cs.onSurfaceVariant, 
+                fontWeight: isHighlight ? FontWeight.bold : FontWeight.normal
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: isHighlight ? FontWeight.bold : FontWeight.w600,
+              color: color ?? cs.onSurface,
+            ),
+          ),
         ],
       ),
     );

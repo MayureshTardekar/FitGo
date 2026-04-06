@@ -33,11 +33,7 @@ class RadialDial extends ConsumerWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 boxShadow: [
-                  BoxShadow(
-                    color: glowColor,
-                    blurRadius: 30,
-                    spreadRadius: 5,
-                  ),
+                  BoxShadow(color: glowColor, blurRadius: 30, spreadRadius: 5),
                 ],
               ),
             ),
@@ -92,8 +88,9 @@ class RadialDial extends ConsumerWidget {
                     color: fasting.isComplete
                         ? const Color(0xFFFFBA08)
                         : colorScheme.onSurfaceVariant,
-                    fontWeight:
-                        fasting.isComplete ? FontWeight.bold : FontWeight.normal,
+                    fontWeight: fasting.isComplete
+                        ? FontWeight.bold
+                        : FontWeight.normal,
                   ),
                 ),
                 if (fasting.isComplete) ...[
@@ -213,10 +210,14 @@ class _RadialDialPainter extends CustomPainter {
         ..strokeWidth = 2
         ..strokeCap = StrokeCap.round;
       canvas.drawLine(
-        Offset(center.dx + innerR * cos(tickAngle),
-            center.dy + innerR * sin(tickAngle)),
-        Offset(center.dx + outerR * cos(tickAngle),
-            center.dy + outerR * sin(tickAngle)),
+        Offset(
+          center.dx + innerR * cos(tickAngle),
+          center.dy + innerR * sin(tickAngle),
+        ),
+        Offset(
+          center.dx + outerR * cos(tickAngle),
+          center.dy + outerR * sin(tickAngle),
+        ),
         tickPaint,
       );
     }

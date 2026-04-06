@@ -41,14 +41,12 @@ class UserProfile extends HiveObject {
     int? weeklyCalorieGoal,
     this.weightGoal = 'maintain',
     this.dobString = '',
-  })  : calorieGoal =
-            calorieGoal ?? _calcCalorieGoal(weightKg, heightCm, age, gender),
-        waterGoalMl = waterGoalMl ?? _calcWaterGoal(weightKg),
-        weeklyCalorieGoal =
-            (weeklyCalorieGoal == null || weeklyCalorieGoal == 0)
-                ? _calcWeeklyCalorieGoal(
-                    weightKg, heightCm, age, gender, weightGoal)
-                : weeklyCalorieGoal;
+  }) : calorieGoal =
+           calorieGoal ?? _calcCalorieGoal(weightKg, heightCm, age, gender),
+       waterGoalMl = waterGoalMl ?? _calcWaterGoal(weightKg),
+       weeklyCalorieGoal = (weeklyCalorieGoal == null || weeklyCalorieGoal == 0)
+           ? _calcWeeklyCalorieGoal(weightKg, heightCm, age, gender, weightGoal)
+           : weeklyCalorieGoal;
 
   /// Age from DOB
   static int ageFromDob(DateTime dob) {
@@ -62,13 +60,16 @@ class UserProfile extends HiveObject {
   }
 
   /// The daily quota derived from weekly goal
-  int get dailyQuota => weeklyCalorieGoal > 0
-      ? (weeklyCalorieGoal / 7).round()
-      : calorieGoal;
+  int get dailyQuota =>
+      weeklyCalorieGoal > 0 ? (weeklyCalorieGoal / 7).round() : calorieGoal;
 
   /// Mifflin-St Jeor BMR → TDEE
   static int _calcCalorieGoal(
-      double weight, double height, int age, String gender) {
+    double weight,
+    double height,
+    int age,
+    String gender,
+  ) {
     double bmr;
     if (gender == 'male') {
       bmr = 10 * weight + 6.25 * height - 5 * age + 5;
@@ -85,7 +86,12 @@ class UserProfile extends HiveObject {
 
   /// Weekly calorie goal based on weight goal
   static int _calcWeeklyCalorieGoal(
-      double weight, double height, int age, String gender, String goal) {
+    double weight,
+    double height,
+    int age,
+    String gender,
+    String goal,
+  ) {
     final dailyTdee = _calcCalorieGoal(weight, height, age, gender);
     switch (goal) {
       case 'lose':

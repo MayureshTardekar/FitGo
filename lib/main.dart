@@ -18,9 +18,7 @@ void main() async {
 
   runApp(
     ProviderScope(
-      overrides: [
-        localStorageProvider.overrideWithValue(storage),
-      ],
+      overrides: [localStorageProvider.overrideWithValue(storage)],
       child: const FitGoApp(),
     ),
   );

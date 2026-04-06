@@ -68,10 +68,13 @@ class WeightChart extends ConsumerWidget {
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                interval: (entries.length > 7) ? (entries.length / 5).ceil().toDouble() : 1,
+                interval: (entries.length > 7)
+                    ? (entries.length / 5).ceil().toDouble()
+                    : 1,
                 getTitlesWidget: (value, meta) {
                   final index = value.toInt();
-                  if (index < 0 || index >= entries.length) return const SizedBox();
+                  if (index < 0 || index >= entries.length)
+                    return const SizedBox();
                   final date = entries[index].dateKey;
                   return Padding(
                     padding: const EdgeInsets.only(top: 6),
@@ -86,8 +89,12 @@ class WeightChart extends ConsumerWidget {
                 },
               ),
             ),
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            rightTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
           ),
           borderData: FlBorderData(show: false),
           lineBarsData: [
@@ -101,11 +108,11 @@ class WeightChart extends ConsumerWidget {
                 show: true,
                 getDotPainter: (spot, percent, barData, index) =>
                     FlDotCirclePainter(
-                  radius: 4,
-                  color: colorScheme.primary,
-                  strokeWidth: 2,
-                  strokeColor: colorScheme.surface,
-                ),
+                      radius: 4,
+                      color: colorScheme.primary,
+                      strokeWidth: 2,
+                      strokeColor: colorScheme.surface,
+                    ),
               ),
               belowBarData: BarAreaData(
                 show: true,

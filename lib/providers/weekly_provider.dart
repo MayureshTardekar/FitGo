@@ -187,16 +187,18 @@ class WeeklyNotifier extends Notifier<WeeklyAnalytics> {
       cumulativeIntake.add(runningTotal);
       cumulativeTarget.add(runningTarget);
 
-      days.add(DaySummary(
-        dateKey: key,
-        dayName: dayNames[i],
-        calories: isFuture ? 0 : cal,
-        waterMl: isFuture ? 0 : metrics.waterMl,
-        dailyTarget: baseDailyTarget,
-        isToday: isToday,
-        isFuture: isFuture,
-        calorieEntries: isFuture ? [] : metrics.calorieEntries,
-      ));
+      days.add(
+        DaySummary(
+          dateKey: key,
+          dayName: dayNames[i],
+          calories: isFuture ? 0 : cal,
+          waterMl: isFuture ? 0 : metrics.waterMl,
+          dailyTarget: baseDailyTarget,
+          isToday: isToday,
+          isFuture: isFuture,
+          calorieEntries: isFuture ? [] : metrics.calorieEntries,
+        ),
+      );
     }
 
     if (lowest == 999999) lowest = 0;
@@ -211,8 +213,9 @@ class WeeklyNotifier extends Notifier<WeeklyAnalytics> {
         : baseDailyTarget;
 
     final completedDays = pastDaysCount + 1;
-    final avgDaily =
-        completedDays > 0 ? (totalConsumed / completedDays).round() : 0;
+    final avgDaily = completedDays > 0
+        ? (totalConsumed / completedDays).round()
+        : 0;
     final projectedWeekTotal = (avgDaily * 7);
 
     final weeklyProgress = weeklyGoal > 0
@@ -230,8 +233,9 @@ class WeeklyNotifier extends Notifier<WeeklyAnalytics> {
         }
       }
     }
-    final consistencyScore =
-        activeDays > 0 ? ((withinTargetDays / activeDays) * 100).round() : 0;
+    final consistencyScore = activeDays > 0
+        ? ((withinTargetDays / activeDays) * 100).round()
+        : 0;
 
     // Adjust future/today targets
     final adjustedDays = days.map((d) {
@@ -316,84 +320,103 @@ class WeeklyNotifier extends Notifier<WeeklyAnalytics> {
     if (projected > 0) {
       if (projected <= weekly) {
         final under = weekly - projected;
-        insights.add(Insight(
-          title: 'On Track',
-          description:
-              'At your current pace, you\'ll finish ~$under kcal under budget. Keep it up!',
-          type: InsightType.positive,
-          icon: IconType.target,
-        ));
+        insights.add(
+          Insight(
+            title: 'On Track',
+            description:
+                'At your current pace, you\'ll finish ~$under kcal under budget. Keep it up!',
+            type: InsightType.positive,
+            icon: IconType.target,
+          ),
+        );
       } else {
         final over = projected - weekly;
-        insights.add(Insight(
-          title: 'Over Pace',
-          description:
-              'Projected $over kcal over goal. Try $adjustedTarget kcal/day for the next $daysLeft days.',
-          type: InsightType.warning,
-          icon: IconType.alert,
-        ));
+        insights.add(
+          Insight(
+            title: 'Over Pace',
+            description:
+                'Projected $over kcal over goal. Try $adjustedTarget kcal/day for the next $daysLeft days.',
+            type: InsightType.warning,
+            icon: IconType.alert,
+          ),
+        );
       }
     }
 
     // Streak insight
     if (streakDays >= 3) {
-      insights.add(Insight(
-        title: '$streakDays-Day Streak!',
-        description:
-            'You\'ve been within 15% of your daily target for $streakDays days straight.',
-        type: InsightType.positive,
-        icon: IconType.streak,
-      ));
+      insights.add(
+        Insight(
+          title: '$streakDays-Day Streak!',
+          description:
+              'You\'ve been within 15% of your daily target for $streakDays days straight.',
+          type: InsightType.positive,
+          icon: IconType.streak,
+        ),
+      );
     }
 
     // Consistency insight
     if (consistencyScore >= 80) {
-      insights.add(Insight(
-        title: 'Highly Consistent',
-        description:
-            'Your consistency score is $consistencyScore%. You\'re nailing your daily targets.',
-        type: InsightType.positive,
-        icon: IconType.trophy,
-      ));
+      insights.add(
+        Insight(
+          title: 'Highly Consistent',
+          description:
+              'Your consistency score is $consistencyScore%. You\'re nailing your daily targets.',
+          type: InsightType.positive,
+          icon: IconType.trophy,
+        ),
+      );
     } else if (consistencyScore > 0 && consistencyScore < 40) {
-      insights.add(Insight(
-        title: 'Inconsistent Intake',
-        description:
-            'Consistency is $consistencyScore%. Try to stay closer to $baseDailyTarget kcal each day for better results.',
-        type: InsightType.negative,
-        icon: IconType.tip,
-      ));
+      insights.add(
+        Insight(
+          title: 'Inconsistent Intake',
+          description:
+              'Consistency is $consistencyScore%. Try to stay closer to $baseDailyTarget kcal each day for better results.',
+          type: InsightType.negative,
+          icon: IconType.tip,
+        ),
+      );
     }
 
     // Variance insight
-    if (highestDay > 0 && lowestDay > 0 && highestDay - lowestDay > baseDailyTarget * 0.5) {
-      insights.add(Insight(
-        title: 'Big Swings',
-        description:
-            'Your highest day ($highestDayName: $highestDay) is ${highestDay - lowestDay} kcal more than your lowest ($lowestDayName: $lowestDay). Smoother intake helps metabolism.',
-        type: InsightType.info,
-        icon: IconType.trending,
-      ));
+    if (highestDay > 0 &&
+        lowestDay > 0 &&
+        highestDay - lowestDay > baseDailyTarget * 0.5) {
+      insights.add(
+        Insight(
+          title: 'Big Swings',
+          description:
+              'Your highest day ($highestDayName: $highestDay) is ${highestDay - lowestDay} kcal more than your lowest ($lowestDayName: $lowestDay). Smoother intake helps metabolism.',
+          type: InsightType.info,
+          icon: IconType.trending,
+        ),
+      );
     }
 
     // Water insight
     if (waterGoal > 0 && totalWater > 0) {
       final waterPercent = (totalWater / waterGoal * 100).round();
       if (waterPercent >= 80) {
-        insights.add(Insight(
-          title: 'Hydration On Point',
-          description: 'You\'ve hit $waterPercent% of your water goal this week.',
-          type: InsightType.positive,
-          icon: IconType.water,
-        ));
+        insights.add(
+          Insight(
+            title: 'Hydration On Point',
+            description:
+                'You\'ve hit $waterPercent% of your water goal this week.',
+            type: InsightType.positive,
+            icon: IconType.water,
+          ),
+        );
       } else if (waterPercent < 50) {
-        insights.add(Insight(
-          title: 'Drink More Water',
-          description:
-              'Only $waterPercent% of your weekly water goal. Hydration helps with hunger management.',
-          type: InsightType.warning,
-          icon: IconType.water,
-        ));
+        insights.add(
+          Insight(
+            title: 'Drink More Water',
+            description:
+                'Only $waterPercent% of your weekly water goal. Hydration helps with hunger management.',
+            type: InsightType.warning,
+            icon: IconType.water,
+          ),
+        );
       }
     }
 
@@ -401,14 +424,16 @@ class WeeklyNotifier extends Notifier<WeeklyAnalytics> {
     if (daysLeft > 1 && daysLeft < 7 && adjustedTarget != baseDailyTarget) {
       final diff = adjustedTarget - baseDailyTarget;
       if (diff.abs() > 50) {
-        insights.add(Insight(
-          title: 'Adjusted Target',
-          description: diff > 0
-              ? 'You\'ve been under-eating, so you can have ${diff.abs()} extra kcal/day and still hit your goal.'
-              : 'To compensate, aim for ${diff.abs()} fewer kcal/day for the remaining days.',
-          type: diff > 0 ? InsightType.info : InsightType.warning,
-          icon: IconType.target,
-        ));
+        insights.add(
+          Insight(
+            title: 'Adjusted Target',
+            description: diff > 0
+                ? 'You\'ve been under-eating, so you can have ${diff.abs()} extra kcal/day and still hit your goal.'
+                : 'To compensate, aim for ${diff.abs()} fewer kcal/day for the remaining days.',
+            type: diff > 0 ? InsightType.info : InsightType.warning,
+            icon: IconType.target,
+          ),
+        );
       }
     }
 
@@ -416,5 +441,6 @@ class WeeklyNotifier extends Notifier<WeeklyAnalytics> {
   }
 }
 
-final weeklyProvider =
-    NotifierProvider<WeeklyNotifier, WeeklyAnalytics>(WeeklyNotifier.new);
+final weeklyProvider = NotifierProvider<WeeklyNotifier, WeeklyAnalytics>(
+  WeeklyNotifier.new,
+);

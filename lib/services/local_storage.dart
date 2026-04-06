@@ -61,6 +61,15 @@ class LocalStorage {
     return _metricsBox.get(dateKey);
   }
 
+  /// Get the date of the very first data entry
+  DateTime? getFirstEntryDate() {
+    if (_metricsBox.isEmpty) return null;
+    final keys = _metricsBox.keys.cast<String>().toList();
+    if (keys.isEmpty) return null;
+    keys.sort();
+    return DateTime.tryParse(keys.first);
+  }
+
   /// Get metrics for the current week (Monday to Sunday)
   List<DailyMetrics> getCurrentWeekMetrics() {
     final now = DateTime.now();

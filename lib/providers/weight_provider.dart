@@ -25,5 +25,6 @@ class WeightNotifier extends Notifier<List<WeightEntry>> {
   }
 }
 
-final weightProvider =
-    NotifierProvider<WeightNotifier, List<WeightEntry>>(WeightNotifier.new);
+final weightProvider = NotifierProvider<WeightNotifier, List<WeightEntry>>(
+  WeightNotifier.new,
+);

@@ -29,5 +29,6 @@ class CalorieNotifier extends Notifier<int> {
   }
 }
 
-final calorieProvider =
-    NotifierProvider<CalorieNotifier, int>(CalorieNotifier.new);
+final calorieProvider = NotifierProvider<CalorieNotifier, int>(
+  CalorieNotifier.new,
+);

@@ -29,7 +29,8 @@ class ProfileNotifier extends Notifier<UserProfile?> {
     final profile = state!;
     if (calorieGoal != null) profile.calorieGoal = calorieGoal;
     if (waterGoalMl != null) profile.waterGoalMl = waterGoalMl;
-    if (weeklyCalorieGoal != null) profile.weeklyCalorieGoal = weeklyCalorieGoal;
+    if (weeklyCalorieGoal != null)
+      profile.weeklyCalorieGoal = weeklyCalorieGoal;
     if (weightGoal != null) profile.weightGoal = weightGoal;
     final storage = ref.read(localStorageProvider);
     await storage.saveProfile(profile);
@@ -49,5 +50,6 @@ class ProfileNotifier extends Notifier<UserProfile?> {
   }
 }
 
-final profileProvider =
-    NotifierProvider<ProfileNotifier, UserProfile?>(ProfileNotifier.new);
+final profileProvider = NotifierProvider<ProfileNotifier, UserProfile?>(
+  ProfileNotifier.new,
+);

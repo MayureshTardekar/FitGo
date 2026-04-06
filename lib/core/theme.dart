@@ -14,9 +14,16 @@ class FitColors {
   static const amberFlame = Color(0xFFFFBA08);
 
   static const gradient = [
-    inkBlack, nightBordeaux, blackCherry, oxblood,
-    brickEmber, redOchre, cayenneRed, deepSaffron,
-    orange, amberFlame,
+    inkBlack,
+    nightBordeaux,
+    blackCherry,
+    oxblood,
+    brickEmber,
+    redOchre,
+    cayenneRed,
+    deepSaffron,
+    orange,
+    amberFlame,
   ];
 }
 

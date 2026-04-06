@@ -44,8 +44,11 @@ class _AuthScreenState extends State<AuthScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   // Logo
-                  Icon(Icons.local_fire_department,
-                      size: 56, color: cs.primary),
+                  Icon(
+                    Icons.local_fire_department,
+                    size: 56,
+                    color: cs.primary,
+                  ),
                   const SizedBox(height: 12),
                   Text(
                     'FitGo',
@@ -58,8 +61,9 @@ class _AuthScreenState extends State<AuthScreen> {
                   const SizedBox(height: 8),
                   Text(
                     _isLogin ? 'Welcome back!' : 'Create your account',
-                    style: theme.textTheme.bodyLarge
-                        ?.copyWith(color: cs.onSurfaceVariant),
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 40),
 
@@ -89,9 +93,9 @@ class _AuthScreenState extends State<AuthScreen> {
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
-                            _obscure ? Icons.visibility_off : Icons.visibility),
-                        onPressed: () =>
-                            setState(() => _obscure = !_obscure),
+                          _obscure ? Icons.visibility_off : Icons.visibility,
+                        ),
+                        onPressed: () => setState(() => _obscure = !_obscure),
                       ),
                     ),
                     validator: (v) {
@@ -124,14 +128,12 @@ class _AuthScreenState extends State<AuthScreen> {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.error_outline,
-                              size: 18, color: cs.error),
+                          Icon(Icons.error_outline, size: 18, color: cs.error),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               _error!,
-                              style:
-                                  TextStyle(fontSize: 12, color: cs.error),
+                              style: TextStyle(fontSize: 12, color: cs.error),
                             ),
                           ),
                         ],
@@ -166,8 +168,10 @@ class _AuthScreenState extends State<AuthScreen> {
                       Expanded(child: Divider(color: cs.outlineVariant)),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text('or',
-                            style: TextStyle(color: cs.onSurfaceVariant)),
+                        child: Text(
+                          'or',
+                          style: TextStyle(color: cs.onSurfaceVariant),
+                        ),
                       ),
                       Expanded(child: Divider(color: cs.outlineVariant)),
                     ],
@@ -180,12 +184,14 @@ class _AuthScreenState extends State<AuthScreen> {
                     height: 48,
                     child: OutlinedButton.icon(
                       onPressed: _loading ? null : _handleGoogleSignIn,
-                      icon: const Text('G',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFDB4437),
-                          )),
+                      icon: const Text(
+                        'G',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFDB4437),
+                        ),
+                      ),
                       label: const Text('Continue with Google'),
                     ),
                   ),
@@ -205,9 +211,9 @@ class _AuthScreenState extends State<AuthScreen> {
                         onPressed: _loading
                             ? null
                             : () => setState(() {
-                                  _isLogin = !_isLogin;
-                                  _error = null;
-                                }),
+                                _isLogin = !_isLogin;
+                                _error = null;
+                              }),
                         child: Text(_isLogin ? 'Sign Up' : 'Sign In'),
                       ),
                     ],
@@ -220,7 +226,9 @@ class _AuthScreenState extends State<AuthScreen> {
                     child: Text(
                       'Skip for now (offline only)',
                       style: TextStyle(
-                          color: cs.onSurfaceVariant, fontSize: 12),
+                        color: cs.onSurfaceVariant,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ],
@@ -304,8 +312,8 @@ class _AuthScreenState extends State<AuthScreen> {
 
   void _handleSkip() {
     // Go to onboarding — app works offline with Hive only
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const OnboardingScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const OnboardingScreen()));
   }
 }

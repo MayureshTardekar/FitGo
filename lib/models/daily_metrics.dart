@@ -59,8 +59,8 @@ class DailyMetrics extends HiveObject {
     this.sleepMinutes = 0,
     this.sleepBedtime = '',
     this.sleepWakeTime = '',
-  })  : calorieEntries = calorieEntries ?? [],
-        activities = activities ?? [];
+  }) : calorieEntries = calorieEntries ?? [],
+       activities = activities ?? [];
 
   /// Net calories = eaten - burned
   int get netCalories => totalCalories - caloriesBurned;

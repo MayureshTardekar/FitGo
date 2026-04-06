@@ -36,7 +36,9 @@ class SupabaseService {
     required String password,
   }) async {
     return await client.auth.signInWithPassword(
-        email: email, password: password);
+      email: email,
+      password: password,
+    );
   }
 
   static Future<void> signInWithGoogle() async {
@@ -105,29 +107,28 @@ class SupabaseService {
     final uid = userId;
     if (uid == null) return;
 
-    await client.from('daily_metrics').upsert(
-      {
-        'user_id': uid,
-        'date_key': m.dateKey,
-        'total_calories': m.totalCalories,
-        'water_ml': m.waterMl,
-        'weight': m.weight,
-        'fasting_start_epoch': m.fastingStartEpoch,
-        'fasting_duration_minutes': m.fastingDurationMinutes,
-        'calorie_entries': m.calorieEntries,
-        'steps': m.steps,
-        'calories_burned': m.caloriesBurned,
-        'activities': m.activities,
-        'sleep_minutes': m.sleepMinutes,
-        'sleep_bedtime': m.sleepBedtime,
-        'sleep_wake_time': m.sleepWakeTime,
-      },
-      onConflict: 'user_id,date_key',
-    );
+    await client.from('daily_metrics').upsert({
+      'user_id': uid,
+      'date_key': m.dateKey,
+      'total_calories': m.totalCalories,
+      'water_ml': m.waterMl,
+      'weight': m.weight,
+      'fasting_start_epoch': m.fastingStartEpoch,
+      'fasting_duration_minutes': m.fastingDurationMinutes,
+      'calorie_entries': m.calorieEntries,
+      'steps': m.steps,
+      'calories_burned': m.caloriesBurned,
+      'activities': m.activities,
+      'sleep_minutes': m.sleepMinutes,
+      'sleep_bedtime': m.sleepBedtime,
+      'sleep_wake_time': m.sleepWakeTime,
+    }, onConflict: 'user_id,date_key');
   }
 
   static Future<List<Map<String, dynamic>>> fetchMetricsRange(
-      String fromDate, String toDate) async {
+    String fromDate,
+    String toDate,
+  ) async {
     final uid = userId;
     if (uid == null) return [];
 
@@ -146,14 +147,11 @@ class SupabaseService {
     final uid = userId;
     if (uid == null) return;
 
-    await client.from('weight_entries').upsert(
-      {
-        'user_id': uid,
-        'date_key': w.dateKey,
-        'weight': w.weight,
-      },
-      onConflict: 'user_id,date_key',
-    );
+    await client.from('weight_entries').upsert({
+      'user_id': uid,
+      'date_key': w.dateKey,
+      'weight': w.weight,
+    }, onConflict: 'user_id,date_key');
   }
 
   // ─── Bulk Sync (on login / app start) ──────────────────────────────────

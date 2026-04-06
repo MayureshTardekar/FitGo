@@ -18,16 +18,14 @@ class FastingState {
     this.startTime,
   });
 
-  double get progress =>
-      target.inSeconds > 0
-          ? (elapsed.inSeconds / target.inSeconds).clamp(0.0, 1.0)
-          : 0.0;
+  double get progress => target.inSeconds > 0
+      ? (elapsed.inSeconds / target.inSeconds).clamp(0.0, 1.0)
+      : 0.0;
 
   bool get isComplete => elapsed >= target;
 
   /// How much overtime past the target
-  Duration get overtime =>
-      isComplete ? elapsed - target : Duration.zero;
+  Duration get overtime => isComplete ? elapsed - target : Duration.zero;
 
   FastingState copyWith({
     bool? isFasting,
@@ -257,5 +255,6 @@ class _FastingEpoch {
   });
 }
 
-final fastingProvider =
-    NotifierProvider<FastingNotifier, FastingState>(FastingNotifier.new);
+final fastingProvider = NotifierProvider<FastingNotifier, FastingState>(
+  FastingNotifier.new,
+);
