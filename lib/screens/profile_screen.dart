@@ -453,6 +453,18 @@ class _ProfileBody extends ConsumerWidget {
             label: Text('Sign Out', style: TextStyle(color: cs.error)),
           ),
         const SizedBox(height: 32),
+        Center(
+          child: Text(
+            'Developed by Mayuresh',
+            style: TextStyle(
+              fontSize: 12,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+              fontWeight: FontWeight.w500,
+              letterSpacing: 1.2,
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
       ],
     );
   }
