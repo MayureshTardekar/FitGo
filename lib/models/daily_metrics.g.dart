@@ -30,13 +30,24 @@ class DailyMetricsAdapter extends TypeAdapter<DailyMetrics> {
       sleepMinutes: fields[10] == null ? 0 : fields[10] as int,
       sleepBedtime: fields[11] == null ? '' : fields[11] as String,
       sleepWakeTime: fields[12] == null ? '' : fields[12] as String,
+      proteinGrams: fields[13] == null ? 0 : fields[13] as int,
+      carbsGrams: fields[14] == null ? 0 : fields[14] as int,
+      fatGrams: fields[15] == null ? 0 : fields[15] as int,
+      fiberGrams: fields[16] == null ? 0 : fields[16] as int,
+      sugarGrams: fields[17] == null ? 0 : fields[17] as int,
+      nutritionEntries: fields[18] == null
+          ? []
+          : (fields[18] as List?)?.cast<String>(),
+      fastingReminderMinutes: fields[19] == null ? 60 : fields[19] as int,
+      fastingReminderEnabled: fields[20] == null ? true : fields[20] as bool,
+      fastingLastReminderEpoch: fields[21] as int?,
     );
   }
 
   @override
   void write(BinaryWriter writer, DailyMetrics obj) {
     writer
-      ..writeByte(13)
+      ..writeByte(22)
       ..writeByte(0)
       ..write(obj.dateKey)
       ..writeByte(1)
@@ -62,7 +73,25 @@ class DailyMetricsAdapter extends TypeAdapter<DailyMetrics> {
       ..writeByte(11)
       ..write(obj.sleepBedtime)
       ..writeByte(12)
-      ..write(obj.sleepWakeTime);
+      ..write(obj.sleepWakeTime)
+      ..writeByte(13)
+      ..write(obj.proteinGrams)
+      ..writeByte(14)
+      ..write(obj.carbsGrams)
+      ..writeByte(15)
+      ..write(obj.fatGrams)
+      ..writeByte(16)
+      ..write(obj.fiberGrams)
+      ..writeByte(17)
+      ..write(obj.sugarGrams)
+      ..writeByte(18)
+      ..write(obj.nutritionEntries)
+      ..writeByte(19)
+      ..write(obj.fastingReminderMinutes)
+      ..writeByte(20)
+      ..write(obj.fastingReminderEnabled)
+      ..writeByte(21)
+      ..write(obj.fastingLastReminderEpoch);
   }
 
   @override

@@ -45,6 +45,33 @@ class DailyMetrics extends HiveObject {
   @HiveField(12, defaultValue: '')
   String sleepWakeTime; // "HH:mm"
 
+  @HiveField(13, defaultValue: 0)
+  int proteinGrams;
+
+  @HiveField(14, defaultValue: 0)
+  int carbsGrams;
+
+  @HiveField(15, defaultValue: 0)
+  int fatGrams;
+
+  @HiveField(16, defaultValue: 0)
+  int fiberGrams;
+
+  @HiveField(17, defaultValue: 0)
+  int sugarGrams;
+
+  @HiveField(18, defaultValue: <String>[])
+  List<String> nutritionEntries; // "label|calories|protein|carbs|fat|fiber|sugar"
+
+  @HiveField(19, defaultValue: 60)
+  int fastingReminderMinutes;
+
+  @HiveField(20, defaultValue: true)
+  bool fastingReminderEnabled;
+
+  @HiveField(21)
+  int? fastingLastReminderEpoch;
+
   DailyMetrics({
     required this.dateKey,
     this.totalCalories = 0,
@@ -59,8 +86,18 @@ class DailyMetrics extends HiveObject {
     this.sleepMinutes = 0,
     this.sleepBedtime = '',
     this.sleepWakeTime = '',
+    this.proteinGrams = 0,
+    this.carbsGrams = 0,
+    this.fatGrams = 0,
+    this.fiberGrams = 0,
+    this.sugarGrams = 0,
+    List<String>? nutritionEntries,
+    this.fastingReminderMinutes = 60,
+    this.fastingReminderEnabled = true,
+    this.fastingLastReminderEpoch,
   }) : calorieEntries = calorieEntries ?? [],
-       activities = activities ?? [];
+       activities = activities ?? [],
+       nutritionEntries = nutritionEntries ?? [];
 
   /// Net calories = eaten - burned
   int get netCalories => totalCalories - caloriesBurned;

@@ -3,23 +3,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme.dart';
 import 'providers/profile_provider.dart';
 import 'providers/storage_provider.dart';
+import 'providers/theme_provider.dart';
 import 'screens/analytics_screen.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'services/supabase_service.dart';
 
-class FitGoApp extends StatelessWidget {
+class FitGoApp extends ConsumerWidget {
   const FitGoApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+
     return MaterialApp(
       title: 'FitGo',
       debugShowCheckedModeBanner: false,
-      themeMode: ThemeMode.dark,
+      themeMode: themeMode,
       darkTheme: FitGoTheme.darkTheme,
-      theme: FitGoTheme.darkTheme,
+      theme: FitGoTheme.lightTheme,
       home: const _AuthGate(),
     );
   }
@@ -106,11 +109,23 @@ class _ProfileGateState extends ConsumerState<_ProfileGate> {
         if (cloudProfile != null && mounted) {
           final storage = ref.read(localStorageProvider);
           await storage.saveProfile(cloudProfile);
+          await SupabaseService.syncToCloud(
+            profile: cloudProfile,
+            metrics: storage.getAllMetrics(),
+            weights: storage.getAllWeights(),
+            settings: storage.getAllSettings(),
+          );
           ref.invalidate(profileProvider);
         }
       } else {
         // Has local profile — push to cloud
-        await SupabaseService.upsertProfile(localProfile);
+        final storage = ref.read(localStorageProvider);
+        await SupabaseService.syncToCloud(
+          profile: localProfile,
+          metrics: storage.getAllMetrics(),
+          weights: storage.getAllWeights(),
+          settings: storage.getAllSettings(),
+        );
       }
     } catch (_) {
       // Offline — no problem, local data works

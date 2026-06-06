@@ -5,7 +5,9 @@ import 'package:intl/intl.dart';
 import '../models/daily_metrics.dart';
 import '../models/weight_entry.dart';
 import '../providers/calorie_provider.dart';
+import '../providers/monthly_calorie_alert_provider.dart';
 import '../providers/storage_provider.dart';
+import '../providers/weekly_nutrition_plan_provider.dart';
 import '../providers/weight_provider.dart';
 
 class PastDayLogScreen extends StatefulWidget {
@@ -290,6 +292,8 @@ class _PastDayLogScreenState extends State<PastDayLogScreen> {
 
     // Invalidate calorie provider so weekly analytics / trend chart refresh
     ref.invalidate(calorieProvider);
+    ref.invalidate(monthlyCalorieAlertProvider);
+    ref.invalidate(weeklyNutritionPlanProvider);
 
     // Also save weight entry if provided
     if (weight != null) {

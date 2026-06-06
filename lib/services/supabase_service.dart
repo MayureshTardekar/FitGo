@@ -107,7 +107,7 @@ class SupabaseService {
     final uid = userId;
     if (uid == null) return;
 
-    await client.from('daily_metrics').upsert({
+    final payload = {
       'user_id': uid,
       'date_key': m.dateKey,
       'total_calories': m.totalCalories,
@@ -122,7 +122,36 @@ class SupabaseService {
       'sleep_minutes': m.sleepMinutes,
       'sleep_bedtime': m.sleepBedtime,
       'sleep_wake_time': m.sleepWakeTime,
-    }, onConflict: 'user_id,date_key');
+      'protein_grams': m.proteinGrams,
+      'carbs_grams': m.carbsGrams,
+      'fat_grams': m.fatGrams,
+      'fiber_grams': m.fiberGrams,
+      'sugar_grams': m.sugarGrams,
+      'nutrition_entries': m.nutritionEntries,
+      'fasting_reminder_minutes': m.fastingReminderMinutes,
+      'fasting_reminder_enabled': m.fastingReminderEnabled,
+      'fasting_last_reminder_epoch': m.fastingLastReminderEpoch,
+    };
+
+    try {
+      await client
+          .from('daily_metrics')
+          .upsert(payload, onConflict: 'user_id,date_key');
+    } catch (_) {
+      final legacyPayload = Map<String, dynamic>.of(payload)
+        ..remove('protein_grams')
+        ..remove('carbs_grams')
+        ..remove('fat_grams')
+        ..remove('fiber_grams')
+        ..remove('sugar_grams')
+        ..remove('nutrition_entries')
+        ..remove('fasting_reminder_minutes')
+        ..remove('fasting_reminder_enabled')
+        ..remove('fasting_last_reminder_epoch');
+      await client
+          .from('daily_metrics')
+          .upsert(legacyPayload, onConflict: 'user_id,date_key');
+    }
   }
 
   static Future<List<Map<String, dynamic>>> fetchMetricsRange(
@@ -154,6 +183,37 @@ class SupabaseService {
     }, onConflict: 'user_id,date_key');
   }
 
+  static Future<void> upsertAppSetting(String key, Object? value) async {
+    final uid = userId;
+    if (uid == null) return;
+
+    await client.from('app_settings').upsert({
+      'user_id': uid,
+      'setting_key': key,
+      'setting_value': value,
+    }, onConflict: 'user_id,setting_key');
+  }
+
+  static Future<void> upsertAppSettings(Map<String, dynamic> settings) async {
+    final uid = userId;
+    if (uid == null || settings.isEmpty) return;
+
+    await client
+        .from('app_settings')
+        .upsert(
+          settings.entries
+              .map(
+                (entry) => {
+                  'user_id': uid,
+                  'setting_key': entry.key,
+                  'setting_value': entry.value,
+                },
+              )
+              .toList(),
+          onConflict: 'user_id,setting_key',
+        );
+  }
+
   // ─── Bulk Sync (on login / app start) ──────────────────────────────────
 
   /// Push all local Hive data to Supabase
@@ -161,6 +221,7 @@ class SupabaseService {
     required UserProfile? profile,
     required List<DailyMetrics> metrics,
     required List<WeightEntry> weights,
+    Map<String, dynamic> settings = const {},
   }) async {
     if (!isLoggedIn) return;
 
@@ -173,6 +234,10 @@ class SupabaseService {
 
       for (final w in weights) {
         await upsertWeight(w);
+      }
+
+      if (settings.isNotEmpty) {
+        await upsertAppSettings(settings);
       }
     } catch (_) {
       // Silently fail — offline-first, will retry next time

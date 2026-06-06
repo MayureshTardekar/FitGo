@@ -10,12 +10,20 @@ class FastingState {
   final Duration elapsed;
   final Duration target;
   final DateTime? startTime;
+  final bool remindersEnabled;
+  final Duration reminderInterval;
+  final int? lastReminderEpoch;
+  final int reminderSignal;
 
   const FastingState({
     this.isFasting = false,
     this.elapsed = Duration.zero,
     this.target = const Duration(hours: 16),
     this.startTime,
+    this.remindersEnabled = true,
+    this.reminderInterval = const Duration(hours: 1),
+    this.lastReminderEpoch,
+    this.reminderSignal = 0,
   });
 
   double get progress => target.inSeconds > 0
@@ -27,17 +35,37 @@ class FastingState {
   /// How much overtime past the target
   Duration get overtime => isComplete ? elapsed - target : Duration.zero;
 
+  Duration get untilNextReminder {
+    if (!isFasting || !remindersEnabled || startTime == null) {
+      return Duration.zero;
+    }
+    final last = lastReminderEpoch != null
+        ? DateTime.fromMillisecondsSinceEpoch(lastReminderEpoch!)
+        : startTime!;
+    final next = last.add(reminderInterval);
+    final remaining = next.difference(DateTime.now());
+    return remaining.isNegative ? Duration.zero : remaining;
+  }
+
   FastingState copyWith({
     bool? isFasting,
     Duration? elapsed,
     Duration? target,
     DateTime? startTime,
+    bool? remindersEnabled,
+    Duration? reminderInterval,
+    int? lastReminderEpoch,
+    int? reminderSignal,
   }) {
     return FastingState(
       isFasting: isFasting ?? this.isFasting,
       elapsed: elapsed ?? this.elapsed,
       target: target ?? this.target,
       startTime: startTime ?? this.startTime,
+      remindersEnabled: remindersEnabled ?? this.remindersEnabled,
+      reminderInterval: reminderInterval ?? this.reminderInterval,
+      lastReminderEpoch: lastReminderEpoch ?? this.lastReminderEpoch,
+      reminderSignal: reminderSignal ?? this.reminderSignal,
     );
   }
 }
@@ -77,6 +105,9 @@ class FastingNotifier extends Notifier<FastingState>
         elapsed: elapsed,
         target: target,
         startTime: startTime,
+        remindersEnabled: epoch.reminderEnabled,
+        reminderInterval: Duration(minutes: epoch.reminderMinutes),
+        lastReminderEpoch: epoch.lastReminderEpoch,
       );
     }
 
@@ -97,6 +128,9 @@ class FastingNotifier extends Notifier<FastingState>
     final today = storage.getToday();
     today.fastingStartEpoch = start.millisecondsSinceEpoch;
     today.fastingDurationMinutes = durationMinutes;
+    today.fastingReminderEnabled = state.remindersEnabled;
+    today.fastingReminderMinutes = state.reminderInterval.inMinutes;
+    today.fastingLastReminderEpoch = now.millisecondsSinceEpoch;
     storage.saveMetrics(today);
 
     final elapsed = now.difference(start);
@@ -105,6 +139,9 @@ class FastingNotifier extends Notifier<FastingState>
       elapsed: elapsed,
       target: Duration(minutes: durationMinutes),
       startTime: start,
+      remindersEnabled: state.remindersEnabled,
+      reminderInterval: state.reminderInterval,
+      lastReminderEpoch: now.millisecondsSinceEpoch,
     );
     _startTicker();
   }
@@ -114,9 +151,9 @@ class FastingNotifier extends Notifier<FastingState>
     if (!state.isFasting) return;
 
     final now = DateTime.now();
-    // Don't allow future start or > 24h ago
+    // Don't allow future start or very stale starts
     if (newStart.isAfter(now)) return;
-    if (now.difference(newStart).inHours > 24) return;
+    if (now.difference(newStart).inHours > 48) return;
 
     final storage = ref.read(localStorageProvider);
 
@@ -130,6 +167,32 @@ class FastingNotifier extends Notifier<FastingState>
     today.fastingStartEpoch = newStart.millisecondsSinceEpoch;
     storage.saveMetrics(today);
     _recalculate();
+  }
+
+  void configureReminder({bool? enabled, int? intervalMinutes}) {
+    final interval = intervalMinutes != null
+        ? Duration(minutes: intervalMinutes)
+        : state.reminderInterval;
+    final nextEnabled = enabled ?? state.remindersEnabled;
+    final nowEpoch = DateTime.now().millisecondsSinceEpoch;
+
+    final epoch = _findActiveFastingEpoch();
+    if (epoch != null) {
+      final storage = ref.read(localStorageProvider);
+      final metrics = storage.getMetricsForDate(epoch.dateKey);
+      if (metrics != null) {
+        metrics.fastingReminderEnabled = nextEnabled;
+        metrics.fastingReminderMinutes = interval.inMinutes;
+        metrics.fastingLastReminderEpoch = nowEpoch;
+        storage.saveMetrics(metrics);
+      }
+    }
+
+    state = state.copyWith(
+      remindersEnabled: nextEnabled,
+      reminderInterval: interval,
+      lastReminderEpoch: nowEpoch,
+    );
   }
 
   /// Change fasting duration mid-fast
@@ -180,9 +243,45 @@ class FastingNotifier extends Notifier<FastingState>
     final epoch = _findActiveFastingEpoch();
     if (epoch == null) return;
 
+    final now = DateTime.now();
     final startTime = DateTime.fromMillisecondsSinceEpoch(epoch.epoch);
-    final elapsed = DateTime.now().difference(startTime);
-    state = state.copyWith(elapsed: elapsed, startTime: startTime);
+    final elapsed = now.difference(startTime);
+    var nextState = state.copyWith(
+      elapsed: elapsed,
+      startTime: startTime,
+      remindersEnabled: epoch.reminderEnabled,
+      reminderInterval: Duration(minutes: epoch.reminderMinutes),
+      lastReminderEpoch: epoch.lastReminderEpoch,
+    );
+
+    if (_shouldTriggerReminder(epoch, now, elapsed)) {
+      final storage = ref.read(localStorageProvider);
+      final metrics = storage.getMetricsForDate(epoch.dateKey);
+      if (metrics != null) {
+        metrics.fastingLastReminderEpoch = now.millisecondsSinceEpoch;
+        storage.saveMetrics(metrics);
+      }
+      nextState = nextState.copyWith(
+        lastReminderEpoch: now.millisecondsSinceEpoch,
+        reminderSignal: state.reminderSignal + 1,
+      );
+    }
+
+    state = nextState;
+  }
+
+  bool _shouldTriggerReminder(
+    _FastingEpoch epoch,
+    DateTime now,
+    Duration elapsed,
+  ) {
+    if (!epoch.reminderEnabled || epoch.reminderMinutes <= 0) return false;
+    if (elapsed >= Duration(minutes: epoch.durationMinutes)) return false;
+    if (elapsed < Duration(minutes: epoch.reminderMinutes)) return false;
+
+    final lastEpoch = epoch.lastReminderEpoch ?? epoch.epoch;
+    final last = DateTime.fromMillisecondsSinceEpoch(lastEpoch);
+    return now.difference(last) >= Duration(minutes: epoch.reminderMinutes);
   }
 
   /// Search today and yesterday for an active fasting epoch
@@ -197,6 +296,9 @@ class FastingNotifier extends Notifier<FastingState>
         epoch: today.fastingStartEpoch!,
         durationMinutes: today.fastingDurationMinutes,
         dateKey: today.dateKey,
+        reminderMinutes: today.fastingReminderMinutes,
+        reminderEnabled: today.fastingReminderEnabled,
+        lastReminderEpoch: today.fastingLastReminderEpoch,
       );
     }
 
@@ -210,6 +312,9 @@ class FastingNotifier extends Notifier<FastingState>
         epoch: yMetrics.fastingStartEpoch!,
         durationMinutes: yMetrics.fastingDurationMinutes,
         dateKey: yKey,
+        reminderMinutes: yMetrics.fastingReminderMinutes,
+        reminderEnabled: yMetrics.fastingReminderEnabled,
+        lastReminderEpoch: yMetrics.fastingLastReminderEpoch,
       );
     }
 
@@ -222,12 +327,14 @@ class FastingNotifier extends Notifier<FastingState>
     final metrics = storage.getMetricsForDate(dateKey);
     if (metrics != null) {
       metrics.fastingStartEpoch = null;
+      metrics.fastingLastReminderEpoch = null;
       storage.saveMetrics(metrics);
     }
     // Also clear today if different
     final today = storage.getToday();
     if (today.fastingStartEpoch != null && today.dateKey != dateKey) {
       today.fastingStartEpoch = null;
+      today.fastingLastReminderEpoch = null;
       storage.saveMetrics(today);
     }
   }
@@ -247,11 +354,17 @@ class _FastingEpoch {
   final int epoch;
   final int durationMinutes;
   final String dateKey;
+  final int reminderMinutes;
+  final bool reminderEnabled;
+  final int? lastReminderEpoch;
 
   _FastingEpoch({
     required this.epoch,
     required this.durationMinutes,
     required this.dateKey,
+    required this.reminderMinutes,
+    required this.reminderEnabled,
+    required this.lastReminderEpoch,
   });
 }
 

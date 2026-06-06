@@ -6,9 +6,11 @@ import '../core/constants.dart';
 import '../core/utils.dart';
 import '../providers/activity_provider.dart';
 import '../providers/calorie_provider.dart';
+import '../providers/monthly_calorie_alert_provider.dart';
 import '../providers/profile_provider.dart';
 import '../providers/timer_provider.dart';
 import '../providers/water_provider.dart';
+import '../providers/weekly_nutrition_plan_provider.dart';
 import '../providers/weekly_provider.dart';
 import '../providers/weight_provider.dart';
 import '../widgets/radial_dial.dart';
@@ -16,11 +18,34 @@ import '../widgets/weight_chart.dart';
 import 'past_day_screen.dart';
 import 'profile_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen<FastingState>(fastingProvider, (previous, next) {
+      if (previous?.reminderSignal == next.reminderSignal ||
+          next.reminderSignal == 0 ||
+          !next.isFasting) {
+        return;
+      }
+
+      HapticFeedback.mediumImpact();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Fasting reminder: drink water and stay zero-calorie.',
+          ),
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: '+250 ml',
+            onPressed: () => ref.read(waterProvider.notifier).addWater(250),
+          ),
+        ),
+      );
+    });
+    ref.watch(monthlyCalorieAlertProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('FitGo'),
@@ -47,6 +72,8 @@ class HomeScreen extends StatelessWidget {
         children: const [
           _WeeklyBanner(),
           SizedBox(height: 16),
+          _WeeklyNutritionCoachCard(),
+          SizedBox(height: 16),
           _NetCaloriesBanner(),
           SizedBox(height: 16),
           _FastingCard(),
@@ -68,7 +95,518 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
+class _MacroDashboard extends StatelessWidget {
+  final NutritionState nutrition;
+
+  const _MacroDashboard({required this.nutrition});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _MacroTile(
+                label: 'Protein',
+                value: nutrition.proteinGrams,
+                target: nutrition.targets.proteinGrams,
+                icon: Icons.egg_alt_outlined,
+                color: cs.primary,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _MacroTile(
+                label: 'Carbs',
+                value: nutrition.carbsGrams,
+                target: nutrition.targets.carbsGrams,
+                icon: Icons.grain,
+                color: const Color(0xFFFFBA08),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _MacroTile(
+                label: 'Fat',
+                value: nutrition.fatGrams,
+                target: nutrition.targets.fatGrams,
+                icon: Icons.opacity,
+                color: const Color(0xFFE85D04),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _MacroTile(
+                label: 'Fiber',
+                value: nutrition.fiberGrams,
+                target: nutrition.targets.fiberGrams,
+                icon: Icons.eco_outlined,
+                color: Colors.greenAccent,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        _MacroTile(
+          label: 'Sugar',
+          value: nutrition.sugarGrams,
+          target: nutrition.targets.sugarGrams,
+          icon: Icons.cake_outlined,
+          color: nutrition.sugarGrams > nutrition.targets.sugarGrams
+              ? cs.error
+              : cs.secondary,
+          isLimit: true,
+        ),
+        if (nutrition.entries.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          ...nutrition.entries.reversed
+              .take(3)
+              .map(
+                (entry) => Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.restaurant,
+                        size: 16,
+                        color: cs.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          entry.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                      Text(
+                        '${entry.calories} kcal',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+        ],
+      ],
+    );
+  }
+}
+
+class _MacroTile extends StatelessWidget {
+  final String label;
+  final int value;
+  final int target;
+  final IconData icon;
+  final Color color;
+  final bool isLimit;
+
+  const _MacroTile({
+    required this.label,
+    required this.value,
+    required this.target,
+    required this.icon,
+    required this.color,
+    this.isLimit = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final progress = target > 0 ? (value / target).clamp(0.0, 1.0) : 0.0;
+    final overLimit = isLimit && value > target;
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withAlpha(180),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: overLimit ? cs.error.withAlpha(90) : cs.outlineVariant,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: overLimit ? cs.error : color),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '$value / $target g',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: overLimit ? cs.error : cs.onSurface,
+            ),
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 5,
+              backgroundColor: cs.surfaceContainerHigh,
+              color: overLimit ? cs.error : color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ─── Weekly Banner ───────────────────────────────────────────────────────────
+
+class _WeeklyNutritionCoachCard extends ConsumerWidget {
+  const _WeeklyNutritionCoachCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final plan = ref.watch(weeklyNutritionPlanProvider);
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final urgent = plan.items.any(
+      (item) => item.isOverWeekly || item.isTodayOver,
+    );
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  urgent ? Icons.warning_amber_rounded : Icons.route_outlined,
+                  color: urgent ? cs.error : cs.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Weekly Plan',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        plan.weekLabel,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Edit weekly targets',
+                  onPressed: () => _showTargetDialog(context, ref, plan),
+                  icon: const Icon(Icons.tune),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: (urgent ? cs.error : cs.primary).withAlpha(18),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: (urgent ? cs.error : cs.primary).withAlpha(60),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    plan.headline,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: urgent ? cs.error : cs.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    plan.guidance,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurface,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            ...plan.items.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _WeeklyPlanRow(
+                  item: item,
+                  icon: _iconFor(item.key),
+                  color: _colorFor(context, item),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _iconFor(String key) => switch (key) {
+    'calories' => Icons.local_fire_department,
+    'protein' => Icons.egg_alt_outlined,
+    'carbs' => Icons.grain,
+    'fat' => Icons.opacity,
+    'fiber' => Icons.eco_outlined,
+    'sugar' => Icons.cake_outlined,
+    'water' => Icons.water_drop,
+    _ => Icons.circle_outlined,
+  };
+
+  Color _colorFor(BuildContext context, WeeklyPlanItem item) {
+    final cs = Theme.of(context).colorScheme;
+    if (item.isOverWeekly || item.isTodayOver) return cs.error;
+    if (item.isClose) return const Color(0xFFE85D04);
+    if (item.key == 'water') return cs.primary;
+    if (item.key == 'protein' || item.key == 'fiber') {
+      return Colors.greenAccent;
+    }
+    return const Color(0xFFFFBA08);
+  }
+
+  void _showTargetDialog(
+    BuildContext context,
+    WidgetRef ref,
+    WeeklyNutritionPlanState plan,
+  ) {
+    TextEditingController ctrl(String key) {
+      return TextEditingController(text: plan.item(key).target.toString());
+    }
+
+    final calories = ctrl('calories');
+    final protein = ctrl('protein');
+    final carbs = ctrl('carbs');
+    final fat = ctrl('fat');
+    final fiber = ctrl('fiber');
+    final sugar = ctrl('sugar');
+    final water = ctrl('water');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Weekly Targets'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _weeklyTargetField(calories, 'Calories', 'kcal'),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(child: _weeklyTargetField(protein, 'Protein', 'g')),
+                  const SizedBox(width: 10),
+                  Expanded(child: _weeklyTargetField(carbs, 'Carbs', 'g')),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(child: _weeklyTargetField(fat, 'Fat', 'g')),
+                  const SizedBox(width: 10),
+                  Expanded(child: _weeklyTargetField(fiber, 'Fiber', 'g')),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(child: _weeklyTargetField(sugar, 'Sugar', 'g')),
+                  const SizedBox(width: 10),
+                  Expanded(child: _weeklyTargetField(water, 'Water', 'ml')),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              await ref
+                  .read(weeklyNutritionPlanProvider.notifier)
+                  .updateTargets(
+                    calories: int.tryParse(calories.text),
+                    protein: int.tryParse(protein.text),
+                    carbs: int.tryParse(carbs.text),
+                    fat: int.tryParse(fat.text),
+                    fiber: int.tryParse(fiber.text),
+                    sugar: int.tryParse(sugar.text),
+                    water: int.tryParse(water.text),
+                  );
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _weeklyTargetField(
+    TextEditingController controller,
+    String label,
+    String suffix,
+  ) {
+    return TextField(
+      controller: controller,
+      keyboardType: TextInputType.number,
+      decoration: InputDecoration(
+        labelText: label,
+        suffixText: suffix,
+        border: const OutlineInputBorder(),
+      ),
+    );
+  }
+}
+
+class _WeeklyPlanRow extends StatelessWidget {
+  final WeeklyPlanItem item;
+  final IconData icon;
+  final Color color;
+
+  const _WeeklyPlanRow({
+    required this.item,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final leftText = item.isLimit
+        ? item.remaining >= 0
+              ? '${item.amount(item.remaining)} left'
+              : '${item.amount(item.remaining.abs())} over'
+        : '${item.amount((item.target - item.consumed).clamp(0, item.target).toInt())} pending';
+    final todayText = item.isLimit
+        ? 'Today ${item.amount(item.todayConsumed)} / ${item.amount(item.adjustedTodayTarget)}'
+        : 'Today ${item.amount(item.todayConsumed)}, avg ${item.amount(item.adjustedTodayTarget)}';
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withAlpha(150),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  item.label,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Text(
+                '${item.amount(item.consumed)} / ${item.amount(item.target)}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: item.isOverWeekly ? cs.error : cs.onSurface,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(5),
+            child: LinearProgressIndicator(
+              value: item.progress,
+              minHeight: 6,
+              backgroundColor: cs.surfaceContainerHigh,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  leftText,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: item.isOverWeekly ? cs.error : cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  todayText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: item.isTodayOver ? cs.error : cs.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (item.adjustedNextDayTarget > 0) ...[
+            const SizedBox(height: 2),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                'Next day budget: ${item.amount(item.adjustedNextDayTarget)}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontSize: 10,
+                  color: cs.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
 
 class _WeeklyBanner extends ConsumerWidget {
   const _WeeklyBanner();
@@ -357,6 +895,8 @@ class _FastingCard extends ConsumerWidget {
                   ),
                 ],
               ),
+              const SizedBox(height: 12),
+              const _FastingReminderControls(),
               const SizedBox(height: 16),
             ],
 
@@ -630,6 +1170,98 @@ class _TimeChip extends StatelessWidget {
   }
 }
 
+class _FastingReminderControls extends ConsumerWidget {
+  const _FastingReminderControls();
+
+  static const _intervals = {
+    30: '30m',
+    60: '1h',
+    90: '1.5h',
+    120: '2h',
+    180: '3h',
+  };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fasting = ref.watch(fastingProvider);
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final selected = fasting.reminderInterval.inMinutes;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(
+                fasting.remindersEnabled
+                    ? Icons.notifications_active_outlined
+                    : Icons.notifications_off_outlined,
+                color: fasting.remindersEnabled
+                    ? cs.primary
+                    : cs.onSurfaceVariant,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Fasting alerts',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      fasting.remindersEnabled
+                          ? 'Next in ${formatDurationShort(fasting.untilNextReminder)}'
+                          : 'Paused',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                value: fasting.remindersEnabled,
+                onChanged: (value) => ref
+                    .read(fastingProvider.notifier)
+                    .configureReminder(enabled: value),
+              ),
+            ],
+          ),
+          if (fasting.remindersEnabled) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _intervals.entries.map((entry) {
+                final isSelected = selected == entry.key;
+                return ChoiceChip(
+                  selected: isSelected,
+                  label: Text(entry.value),
+                  avatar: isSelected ? const Icon(Icons.check, size: 16) : null,
+                  onSelected: (_) => ref
+                      .read(fastingProvider.notifier)
+                      .configureReminder(intervalMinutes: entry.key),
+                );
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _FastingStartSection extends StatefulWidget {
   final void Function(int minutes, {DateTime? startTime}) onStart;
 
@@ -754,7 +1386,8 @@ class _CalorieCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final totalCalories = ref.watch(calorieProvider);
+    final nutrition = ref.watch(nutritionProvider);
+    final totalCalories = nutrition.totalCalories;
     final profile = ref.watch(profileProvider);
     final weekly = ref.watch(weeklyProvider);
     final fasting = ref.watch(fastingProvider);
@@ -778,7 +1411,7 @@ class _CalorieCard extends ConsumerWidget {
                 Icon(Icons.local_fire_department, color: colorScheme.error),
                 const SizedBox(width: 8),
                 Text(
-                  'Calories',
+                  'Nutrition Today',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -841,6 +1474,8 @@ class _CalorieCard extends ConsumerWidget {
                 ),
               ),
             ],
+            const SizedBox(height: 14),
+            _MacroDashboard(nutrition: nutrition),
             if (isFasting) ...[
               const SizedBox(height: 8),
               Container(
@@ -904,14 +1539,15 @@ class _CalorieCard extends ConsumerWidget {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: OutlinedButton(
-                      onPressed: () => _showCustomCalorieDialog(
+                    child: FilledButton.tonalIcon(
+                      onPressed: () => _showAddNutritionDialog(
                         context,
                         ref,
                         totalCalories,
                         dailyQuota,
                       ),
-                      child: const Text('Other'),
+                      icon: const Icon(Icons.restaurant_menu, size: 18),
+                      label: const Text('Add Food'),
                     ),
                   ),
                 ),
@@ -920,9 +1556,9 @@ class _CalorieCard extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: OutlinedButton.icon(
                       onPressed: () =>
-                          _showEditCaloriesDialog(context, ref, totalCalories),
+                          _showEditNutritionDialog(context, ref, nutrition),
                       icon: const Icon(Icons.edit, size: 16),
-                      label: const Text('Edit Total'),
+                      label: const Text('Edit'),
                     ),
                   ),
                 ),
@@ -1011,24 +1647,98 @@ class _CalorieCard extends ConsumerWidget {
     );
   }
 
-  void _showCustomCalorieDialog(
+  void _showAddNutritionDialog(
     BuildContext context,
     WidgetRef ref,
     int currentTotal,
     int goal,
   ) {
-    final controller = TextEditingController();
+    final labelCtrl = TextEditingController();
+    final caloriesCtrl = TextEditingController();
+    final proteinCtrl = TextEditingController();
+    final carbsCtrl = TextEditingController();
+    final fatCtrl = TextEditingController();
+    final fiberCtrl = TextEditingController();
+    final sugarCtrl = TextEditingController();
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Add Calories'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Calories (kcal)',
-            border: OutlineInputBorder(),
+        title: const Text('Add Food'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: labelCtrl,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                  labelText: 'Food name',
+                  hintText: 'e.g. Paneer bowl',
+                  prefixIcon: Icon(Icons.restaurant_menu),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _nutritionField(
+                controller: caloriesCtrl,
+                label: 'Calories',
+                suffix: 'kcal',
+                icon: Icons.local_fire_department,
+                autofocus: true,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _nutritionField(
+                      controller: proteinCtrl,
+                      label: 'Protein',
+                      suffix: 'g',
+                      icon: Icons.egg_alt_outlined,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _nutritionField(
+                      controller: carbsCtrl,
+                      label: 'Carbs',
+                      suffix: 'g',
+                      icon: Icons.grain,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _nutritionField(
+                      controller: fatCtrl,
+                      label: 'Fat',
+                      suffix: 'g',
+                      icon: Icons.opacity,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _nutritionField(
+                      controller: fiberCtrl,
+                      label: 'Fiber',
+                      suffix: 'g',
+                      icon: Icons.eco_outlined,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _nutritionField(
+                controller: sugarCtrl,
+                label: 'Sugar',
+                suffix: 'g',
+                icon: Icons.cake_outlined,
+              ),
+            ],
           ),
         ),
         actions: [
@@ -1038,9 +1748,19 @@ class _CalorieCard extends ConsumerWidget {
           ),
           FilledButton(
             onPressed: () {
-              final value = int.tryParse(controller.text);
+              final value = int.tryParse(caloriesCtrl.text);
               if (value != null && value > 0) {
-                ref.read(calorieProvider.notifier).addCalories(value);
+                ref
+                    .read(nutritionProvider.notifier)
+                    .addNutrition(
+                      label: labelCtrl.text,
+                      calories: value,
+                      proteinGrams: int.tryParse(proteinCtrl.text) ?? 0,
+                      carbsGrams: int.tryParse(carbsCtrl.text) ?? 0,
+                      fatGrams: int.tryParse(fatCtrl.text) ?? 0,
+                      fiberGrams: int.tryParse(fiberCtrl.text) ?? 0,
+                      sugarGrams: int.tryParse(sugarCtrl.text) ?? 0,
+                    );
                 Navigator.pop(ctx);
                 _checkMilestone(context, currentTotal + value, goal);
               }
@@ -1052,23 +1772,95 @@ class _CalorieCard extends ConsumerWidget {
     );
   }
 
-  void _showEditCaloriesDialog(
+  void _showEditNutritionDialog(
     BuildContext context,
     WidgetRef ref,
-    int currentTotal,
+    NutritionState nutrition,
   ) {
-    final controller = TextEditingController(text: currentTotal.toString());
+    final caloriesCtrl = TextEditingController(
+      text: nutrition.totalCalories.toString(),
+    );
+    final proteinCtrl = TextEditingController(
+      text: nutrition.proteinGrams.toString(),
+    );
+    final carbsCtrl = TextEditingController(
+      text: nutrition.carbsGrams.toString(),
+    );
+    final fatCtrl = TextEditingController(text: nutrition.fatGrams.toString());
+    final fiberCtrl = TextEditingController(
+      text: nutrition.fiberGrams.toString(),
+    );
+    final sugarCtrl = TextEditingController(
+      text: nutrition.sugarGrams.toString(),
+    );
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Edit Today\'s Calories'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Total calories today',
-            border: OutlineInputBorder(),
+        title: const Text('Edit Today\'s Nutrition'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _nutritionField(
+                controller: caloriesCtrl,
+                label: 'Calories',
+                suffix: 'kcal',
+                icon: Icons.local_fire_department,
+                autofocus: true,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _nutritionField(
+                      controller: proteinCtrl,
+                      label: 'Protein',
+                      suffix: 'g',
+                      icon: Icons.egg_alt_outlined,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _nutritionField(
+                      controller: carbsCtrl,
+                      label: 'Carbs',
+                      suffix: 'g',
+                      icon: Icons.grain,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _nutritionField(
+                      controller: fatCtrl,
+                      label: 'Fat',
+                      suffix: 'g',
+                      icon: Icons.opacity,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _nutritionField(
+                      controller: fiberCtrl,
+                      label: 'Fiber',
+                      suffix: 'g',
+                      icon: Icons.eco_outlined,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _nutritionField(
+                controller: sugarCtrl,
+                label: 'Sugar',
+                suffix: 'g',
+                icon: Icons.cake_outlined,
+              ),
+            ],
           ),
         ),
         actions: [
@@ -1078,15 +1870,45 @@ class _CalorieCard extends ConsumerWidget {
           ),
           FilledButton(
             onPressed: () {
-              final value = int.tryParse(controller.text);
+              final value = int.tryParse(caloriesCtrl.text);
               if (value != null && value >= 0) {
-                ref.read(calorieProvider.notifier).setCalories(value);
+                ref
+                    .read(nutritionProvider.notifier)
+                    .setNutrition(
+                      calories: value,
+                      proteinGrams: int.tryParse(proteinCtrl.text) ?? 0,
+                      carbsGrams: int.tryParse(carbsCtrl.text) ?? 0,
+                      fatGrams: int.tryParse(fatCtrl.text) ?? 0,
+                      fiberGrams: int.tryParse(fiberCtrl.text) ?? 0,
+                      sugarGrams: int.tryParse(sugarCtrl.text) ?? 0,
+                    );
                 Navigator.pop(ctx);
               }
             },
             child: const Text('Save'),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _nutritionField({
+    required TextEditingController controller,
+    required String label,
+    required String suffix,
+    required IconData icon,
+    bool autofocus = false,
+  }) {
+    return TextField(
+      controller: controller,
+      autofocus: autofocus,
+      keyboardType: TextInputType.number,
+      textInputAction: TextInputAction.next,
+      decoration: InputDecoration(
+        labelText: label,
+        suffixText: suffix,
+        prefixIcon: Icon(icon),
+        border: const OutlineInputBorder(),
       ),
     );
   }

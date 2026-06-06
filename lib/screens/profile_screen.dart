@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../providers/monthly_calorie_alert_provider.dart';
 import '../providers/profile_provider.dart';
+import '../providers/theme_provider.dart';
 import '../services/supabase_service.dart';
 import 'auth_screen.dart';
 import 'onboarding_screen.dart';
@@ -24,6 +26,8 @@ class _ProfileBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(profileProvider);
+    final themeMode = ref.watch(themeModeProvider);
+    final calorieAlert = ref.watch(monthlyCalorieAlertProvider);
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
@@ -244,6 +248,12 @@ class _ProfileBody extends ConsumerWidget {
                   icon: Icons.date_range,
                   label: 'Weekly Target',
                   value: '${profile.weeklyCalorieGoal} kcal',
+                  onEdit: () => _editField(
+                    context,
+                    ref,
+                    'weeklyCalories',
+                    profile.weeklyCalorieGoal.toString(),
+                  ),
                 ),
                 _DetailRow(
                   icon: Icons.local_fire_department,
@@ -271,7 +281,164 @@ class _ProfileBody extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 16),
-        
+
+        // Monthly Calorie Guard Card
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.notification_important_outlined,
+                      color: cs.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Monthly Calorie Guard',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    Switch(
+                      value: calorieAlert.enabled,
+                      onChanged: (value) => ref
+                          .read(monthlyCalorieAlertProvider.notifier)
+                          .updateSettings(enabled: value),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: LinearProgressIndicator(
+                    value: calorieAlert.monthlyLimit > 0
+                        ? (calorieAlert.monthTotal / calorieAlert.monthlyLimit)
+                              .clamp(0.0, 1.0)
+                        : 0.0,
+                    minHeight: 8,
+                    backgroundColor: cs.surfaceContainerHighest,
+                    color: calorieAlert.isOverLimit
+                        ? cs.error
+                        : calorieAlert.isInWarningZone
+                        ? const Color(0xFFE85D04)
+                        : cs.primary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${calorieAlert.monthTotal} / ${calorieAlert.monthlyLimit} kcal this month',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: calorieAlert.isOverLimit
+                        ? cs.error
+                        : cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _DetailRow(
+                  icon: Icons.calendar_month,
+                  label: 'Max Intake',
+                  value: '${calorieAlert.monthlyLimit} kcal',
+                  onEdit: () => _editCalorieGuardNumber(
+                    context,
+                    ref,
+                    title: 'Max Monthly Intake',
+                    current: calorieAlert.monthlyLimit,
+                    suffix: 'kcal',
+                    onSave: (value) => ref
+                        .read(monthlyCalorieAlertProvider.notifier)
+                        .updateSettings(monthlyLimit: value),
+                  ),
+                ),
+                _DetailRow(
+                  icon: Icons.priority_high,
+                  label: 'Warn At',
+                  value:
+                      '${calorieAlert.warningPercent}% (${calorieAlert.warningAt} kcal)',
+                  onEdit: () => _editCalorieGuardNumber(
+                    context,
+                    ref,
+                    title: 'Warning Percent',
+                    current: calorieAlert.warningPercent,
+                    suffix: '%',
+                    onSave: (value) => ref
+                        .read(monthlyCalorieAlertProvider.notifier)
+                        .updateSettings(warningPercent: value),
+                  ),
+                ),
+                _DetailRow(
+                  icon: Icons.schedule,
+                  label: 'Alert Time',
+                  value: calorieAlert.alertTimeLabel,
+                  onEdit: () =>
+                      _pickCalorieGuardTime(context, ref, calorieAlert),
+                ),
+                _DetailRow(
+                  icon: Icons.message_outlined,
+                  label: 'Message',
+                  value: _shortMessage(calorieAlert.message),
+                  onEdit: () => _editCalorieGuardMessage(
+                    context,
+                    ref,
+                    calorieAlert.message,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Appearance Card
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Icon(
+                  themeMode == ThemeMode.dark
+                      ? Icons.dark_mode_outlined
+                      : Icons.light_mode_outlined,
+                  color: cs.primary,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Dark Mode',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        themeMode == ThemeMode.dark
+                            ? 'Black dashboard enabled'
+                            : 'Bright dashboard enabled',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: themeMode == ThemeMode.dark,
+                  onChanged: (value) =>
+                      ref.read(themeModeProvider.notifier).setDarkMode(value),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
         // Advanced Projections Math View
         Card(
           clipBehavior: Clip.antiAlias,
@@ -286,41 +453,59 @@ class _ProfileBody extends ConsumerWidget {
                 ),
               ),
               subtitle: Text(
-                deficit == 0 
-                  ? 'Maintaining current weight' 
-                  : (deficit > 0 
-                      ? 'Losing ~${((deficit * 30) / 7700).toStringAsFixed(1)} kg / month' 
-                      : 'Gaining ~${((deficit.abs() * 30) / 7700).toStringAsFixed(1)} kg / month'),
-                style: TextStyle(color: cs.primary, fontWeight: FontWeight.w600),
+                deficit == 0
+                    ? 'Maintaining current weight'
+                    : (deficit > 0
+                          ? 'Losing ~${((deficit * 30) / 7700).toStringAsFixed(1)} kg / month'
+                          : 'Gaining ~${((deficit.abs() * 30) / 7700).toStringAsFixed(1)} kg / month'),
+                style: TextStyle(
+                  color: cs.primary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              childrenPadding: const EdgeInsets.only(left: 20, right: 20, bottom: 20),
+              childrenPadding: const EdgeInsets.only(
+                left: 20,
+                right: 20,
+                bottom: 20,
+              ),
               expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Divider(),
                 const SizedBox(height: 12),
-                _MathRow(label: 'Maintenance (TDEE)', value: '${profile.tdee} kcal/day'),
-                _MathRow(label: 'Daily Target', value: '$dailyFromWeekly kcal/day'),
                 _MathRow(
-                  label: deficit >= 0 ? 'Daily Deficit' : 'Daily Surplus', 
-                  value: deficit >= 0 ? '-${deficit.abs()} kcal/day' : '+${deficit.abs()} kcal/day',
+                  label: 'Maintenance (TDEE)',
+                  value: '${profile.tdee} kcal/day',
+                ),
+                _MathRow(
+                  label: 'Daily Target',
+                  value: '$dailyFromWeekly kcal/day',
+                ),
+                _MathRow(
+                  label: deficit >= 0 ? 'Daily Deficit' : 'Daily Surplus',
+                  value: deficit >= 0
+                      ? '-${deficit.abs()} kcal/day'
+                      : '+${deficit.abs()} kcal/day',
                   isHighlight: true,
                   color: deficit >= 0 ? cs.primary : const Color(0xFFE85D04),
                 ),
                 const SizedBox(height: 12),
                 _MathRow(
-                  label: 'Monthly Impact', 
+                  label: 'Monthly Impact',
                   value: '${deficit.abs() * 30} kcal',
                 ),
                 _MathRow(
-                  label: 'Equivalent Weight', 
-                  value: '${((deficit.abs() * 30) / 7700).toStringAsFixed(2)} kg',
+                  label: 'Equivalent Weight',
+                  value:
+                      '${((deficit.abs() * 30) / 7700).toStringAsFixed(2)} kg',
                   isHighlight: true,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   '*Based on 7700 kcal = 1kg. Actual results may vary.',
-                  style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurface.withOpacity(0.5)),
-                )
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurface.withOpacity(0.5),
+                  ),
+                ),
               ],
             ),
           ),
@@ -381,24 +566,30 @@ class _ProfileBody extends ConsumerWidget {
               context: context,
               builder: (dCtx) => AlertDialog(
                 title: const Text('Redo Full Setup?'),
-                content: const Text('This will take you to the initial setup screen and overwrite your existing goals. Are you completely sure?'),
+                content: const Text(
+                  'This will take you to the initial setup screen and overwrite your existing goals. Are you completely sure?',
+                ),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(dCtx),
                     child: const Text('Cancel'),
                   ),
                   FilledButton.icon(
-                    style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.error,
+                    ),
                     onPressed: () {
                       Navigator.pop(dCtx); // Close dialog
 
                       bool isCancelled = false;
                       final scaffoldMessenger = ScaffoldMessenger.of(context);
-                      
+
                       scaffoldMessenger.clearSnackBars();
                       scaffoldMessenger.showSnackBar(
                         SnackBar(
-                          content: const Text('Navigating to setup in 5 seconds...'),
+                          content: const Text(
+                            'Navigating to setup in 5 seconds...',
+                          ),
                           duration: const Duration(seconds: 5),
                           behavior: SnackBarBehavior.floating,
                           action: SnackBarAction(
@@ -408,7 +599,9 @@ class _ProfileBody extends ConsumerWidget {
                               isCancelled = true;
                               scaffoldMessenger.showSnackBar(
                                 const SnackBar(
-                                  content: Text('Action cancelled. Setup aborted.'),
+                                  content: Text(
+                                    'Action cancelled. Setup aborted.',
+                                  ),
                                   duration: Duration(seconds: 2),
                                 ),
                               );
@@ -420,7 +613,9 @@ class _ProfileBody extends ConsumerWidget {
                       Future.delayed(const Duration(seconds: 5), () {
                         if (!isCancelled && context.mounted) {
                           Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+                            MaterialPageRoute(
+                              builder: (_) => const OnboardingScreen(),
+                            ),
                           );
                         }
                       });
@@ -478,6 +673,108 @@ class _ProfileBody extends ConsumerWidget {
     'custom' => 'Custom Budget',
     _ => 'Maintain Weight',
   };
+
+  String _shortMessage(String value) {
+    if (value.length <= 24) return value;
+    return '${value.substring(0, 24)}...';
+  }
+
+  void _editCalorieGuardNumber(
+    BuildContext context,
+    WidgetRef ref, {
+    required String title,
+    required int current,
+    required String suffix,
+    required Future<void> Function(int value) onSave,
+  }) {
+    final controller = TextEditingController(text: current.toString());
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(
+            labelText: title,
+            suffixText: suffix,
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final value = int.tryParse(controller.text);
+              if (value == null || value <= 0) return;
+              await onSave(value);
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickCalorieGuardTime(
+    BuildContext context,
+    WidgetRef ref,
+    MonthlyCalorieAlertState alert,
+  ) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: alert.alertHour, minute: alert.alertMinute),
+      helpText: 'Alert time',
+    );
+    if (picked == null) return;
+    await ref
+        .read(monthlyCalorieAlertProvider.notifier)
+        .updateSettings(alertHour: picked.hour, alertMinute: picked.minute);
+  }
+
+  void _editCalorieGuardMessage(
+    BuildContext context,
+    WidgetRef ref,
+    String current,
+  ) {
+    final controller = TextEditingController(text: current);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Notification Message'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLines: 4,
+          decoration: const InputDecoration(
+            labelText: 'Message',
+            hintText: "Your calories are going out of bound. Don't eat.",
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              await ref
+                  .read(monthlyCalorieAlertProvider.notifier)
+                  .updateSettings(message: controller.text);
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
 
   void _editField(
     BuildContext context,
@@ -645,10 +942,12 @@ class _MathRow extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              label, 
+              label,
               style: TextStyle(
-                color: isHighlight ? (color ?? cs.onSurface) : cs.onSurfaceVariant, 
-                fontWeight: isHighlight ? FontWeight.bold : FontWeight.normal
+                color: isHighlight
+                    ? (color ?? cs.onSurface)
+                    : cs.onSurfaceVariant,
+                fontWeight: isHighlight ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ),

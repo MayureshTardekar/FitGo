@@ -4,15 +4,18 @@ import 'package:intl/intl.dart';
 import '../models/daily_metrics.dart';
 import '../models/user_profile.dart';
 import '../models/weight_entry.dart';
+import 'supabase_service.dart';
 
 class LocalStorage {
   static const String _metricsBoxName = 'daily_metrics';
   static const String _weightBoxName = 'weight_entries';
   static const String _profileBoxName = 'user_profile';
+  static const String _settingsBoxName = 'app_settings';
 
   late Box<DailyMetrics> _metricsBox;
   late Box<WeightEntry> _weightBox;
   late Box<UserProfile> _profileBox;
+  late Box<dynamic> _settingsBox;
 
   Future<void> init() async {
     await Hive.initFlutter();
@@ -22,6 +25,7 @@ class LocalStorage {
     _metricsBox = await _openBoxSafe<DailyMetrics>(_metricsBoxName);
     _weightBox = await _openBoxSafe<WeightEntry>(_weightBoxName);
     _profileBox = await _openBoxSafe<UserProfile>(_profileBoxName);
+    _settingsBox = await _openBoxSafe<dynamic>(_settingsBoxName);
   }
 
   /// Opens a Hive box, deleting and recreating it if corrupt
@@ -35,6 +39,32 @@ class LocalStorage {
   }
 
   String get todayKey => DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+  // --- App Settings ---
+
+  String getThemeModeKey() =>
+      (_settingsBox.get('theme_mode', defaultValue: 'dark') as String?) ??
+      'dark';
+
+  Future<void> saveThemeModeKey(String value) async {
+    await _settingsBox.put('theme_mode', value);
+  }
+
+  T getSetting<T>(String key, T defaultValue) {
+    final value = _settingsBox.get(key);
+    return value is T ? value : defaultValue;
+  }
+
+  Future<void> saveSetting(String key, Object? value) async {
+    await _settingsBox.put(key, value);
+    if (SupabaseService.isLoggedIn) {
+      Future.microtask(() async {
+        try {
+          await SupabaseService.upsertAppSetting(key, value);
+        } catch (_) {}
+      });
+    }
+  }
 
   // --- User Profile ---
 
@@ -54,6 +84,13 @@ class LocalStorage {
 
   Future<void> saveMetrics(DailyMetrics metrics) async {
     await _metricsBox.put(metrics.dateKey, metrics);
+    if (SupabaseService.isLoggedIn) {
+      Future.microtask(() async {
+        try {
+          await SupabaseService.upsertDailyMetrics(metrics);
+        } catch (_) {}
+      });
+    }
   }
 
   /// Get metrics for a specific date
@@ -109,6 +146,13 @@ class LocalStorage {
 
   Future<void> saveWeight(WeightEntry entry) async {
     await _weightBox.put(entry.dateKey, entry);
+    if (SupabaseService.isLoggedIn) {
+      Future.microtask(() async {
+        try {
+          await SupabaseService.upsertWeight(entry);
+        } catch (_) {}
+      });
+    }
   }
 
   List<WeightEntry> getWeightHistory({int lastNDays = 30}) {
@@ -118,5 +162,16 @@ class LocalStorage {
       return entries.sublist(entries.length - lastNDays);
     }
     return entries;
+  }
+
+  List<DailyMetrics> getAllMetrics() => _metricsBox.values.toList();
+
+  List<WeightEntry> getAllWeights() => _weightBox.values.toList();
+
+  Map<String, dynamic> getAllSettings() {
+    return {
+      for (final key in _settingsBox.keys)
+        if (key is String) key: _settingsBox.get(key),
+    };
   }
 }
