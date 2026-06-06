@@ -63,7 +63,7 @@ class RadialDial extends ConsumerWidget {
                 ),
                 const SizedBox(height: 2),
               ],
-              // Elapsed time — monospace to prevent jitter
+              // Elapsed time - monospace to prevent jitter
               Text(
                 fasting.isFasting
                     ? formatDuration(fasting.elapsed)

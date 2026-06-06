@@ -52,14 +52,22 @@ class WeeklyPlanItem {
 }
 
 class WeeklyNutritionPlanState {
+  final bool enabled;
   final String weekLabel;
+  final String startDateKey;
+  final int cycleDay;
+  final int consistencyStreak;
   final int daysIncludingToday;
   final List<WeeklyPlanItem> items;
   final String headline;
   final String guidance;
 
   const WeeklyNutritionPlanState({
+    required this.enabled,
     required this.weekLabel,
+    required this.startDateKey,
+    required this.cycleDay,
+    required this.consistencyStreak,
     required this.daysIncludingToday,
     required this.items,
     required this.headline,
@@ -72,6 +80,8 @@ class WeeklyNutritionPlanState {
 
 class WeeklyNutritionPlanNotifier extends Notifier<WeeklyNutritionPlanState> {
   static const _targetPrefix = 'weekly_plan_target_';
+  static const _startDateKey = 'weekly_plan_start_date';
+  static const _enabledKey = 'weekly_plan_enabled';
 
   @override
   WeeklyNutritionPlanState build() {
@@ -86,13 +96,28 @@ class WeeklyNutritionPlanNotifier extends Notifier<WeeklyNutritionPlanState> {
     final profile = ref.read(profileProvider);
     final nutrition = ref.read(nutritionProvider);
     final now = DateTime.now();
-    final todayKey = DateFormat('yyyy-MM-dd').format(now);
+    final today = DateTime(now.year, now.month, now.day);
+    final todayKey = DateFormat('yyyy-MM-dd').format(today);
+    final enabled = storage.getSetting<bool>(_enabledKey, false);
     final yesterdayKey = DateFormat(
       'yyyy-MM-dd',
-    ).format(now.subtract(const Duration(days: 1)));
-    final monday = now.subtract(Duration(days: now.weekday - 1));
-    final weekMetrics = storage.getCurrentWeekMetrics();
-    final daysIncludingToday = 8 - now.weekday;
+    ).format(today.subtract(const Duration(days: 1)));
+    final savedStart = DateTime.tryParse(
+      storage.getSetting<String>(_startDateKey, ''),
+    );
+    final anchor = savedStart == null
+        ? today
+        : DateTime(savedStart.year, savedStart.month, savedStart.day);
+
+    final daysFromAnchor = today.difference(anchor).inDays;
+    final cycleOffset = daysFromAnchor >= 0 ? (daysFromAnchor ~/ 7) * 7 : 0;
+    final cycleStart = daysFromAnchor >= 0
+        ? anchor.add(Duration(days: cycleOffset))
+        : today;
+    final cycleEnd = cycleStart.add(const Duration(days: 6));
+    final weekMetrics = storage.getMetricsRange(cycleStart, cycleEnd);
+    final daysIncludingToday =
+        cycleEnd.difference(today).inDays.clamp(0, 6).toInt() + 1;
 
     final defaultTargets = {
       'calories':
@@ -186,11 +211,20 @@ class WeeklyNutritionPlanNotifier extends Notifier<WeeklyNutritionPlanState> {
     ];
 
     final coach = _coach(items);
-    final weekEnd = monday.add(const Duration(days: 6));
+    final consistencyStreak = _consistencyStreak(
+      weekMetrics,
+      cycleStart,
+      today,
+      items,
+    );
 
     return WeeklyNutritionPlanState(
+      enabled: enabled,
       weekLabel:
-          '${DateFormat('MMM d').format(monday)} - ${DateFormat('MMM d').format(weekEnd)}',
+          '${DateFormat('MMM d').format(cycleStart)} - ${DateFormat('MMM d').format(cycleEnd)}',
+      startDateKey: DateFormat('yyyy-MM-dd').format(cycleStart),
+      cycleDay: today.difference(cycleStart).inDays.clamp(0, 6).toInt() + 1,
+      consistencyStreak: consistencyStreak,
       daysIncludingToday: daysIncludingToday,
       items: items,
       headline: coach.$1,
@@ -211,6 +245,43 @@ class WeeklyNutritionPlanNotifier extends Notifier<WeeklyNutritionPlanState> {
     };
   }
 
+  int _consistencyStreak(
+    List<DailyMetrics> metrics,
+    DateTime cycleStart,
+    DateTime today,
+    List<WeeklyPlanItem> items,
+  ) {
+    final targets = {
+      for (final item in items.where((item) => item.isLimit))
+        item.key: (item.target / 7).ceil(),
+    };
+
+    int streak = 0;
+    for (
+      var date = today;
+      !date.isBefore(cycleStart);
+      date = date.subtract(const Duration(days: 1))
+    ) {
+      final key = DateFormat('yyyy-MM-dd').format(date);
+      final day = metrics.firstWhere(
+        (metric) => metric.dateKey == key,
+        orElse: () => DailyMetrics(dateKey: key),
+      );
+      final hasProgress =
+          day.totalCalories > 0 || day.waterMl > 0 || day.steps > 0;
+      if (!hasProgress) break;
+
+      final insideLimits =
+          day.totalCalories <= (targets['calories'] ?? 999999) &&
+          day.carbsGrams <= (targets['carbs'] ?? 999999) &&
+          day.fatGrams <= (targets['fat'] ?? 999999) &&
+          day.sugarGrams <= (targets['sugar'] ?? 999999);
+      if (!insideLimits) break;
+      streak++;
+    }
+    return streak;
+  }
+
   (String, String) _coach(List<WeeklyPlanItem> items) {
     final limits = items.where((item) => item.isLimit).toList();
     final overWeekly = limits.where((item) => item.isOverWeekly).toList()
@@ -220,8 +291,8 @@ class WeeklyNutritionPlanNotifier extends Notifier<WeeklyNutritionPlanState> {
     if (overWeekly.isNotEmpty) {
       final top = overWeekly.first;
       return (
-        '${top.label} weekly limit crossed',
-        '${top.amount(top.consumed - top.target)} extra ho gaya. Aaj ${top.label.toLowerCase()} stop, water piyo, next meal light rakho.',
+        '${top.label} plan limit crossed',
+        'You are ${top.amount(top.consumed - top.target)} over your 7-day ${top.label.toLowerCase()} limit. Pause ${top.label.toLowerCase()}-heavy foods today, hydrate, and keep the next meal light.',
       );
     }
 
@@ -230,8 +301,8 @@ class WeeklyNutritionPlanNotifier extends Notifier<WeeklyNutritionPlanState> {
     if (todayOver.isNotEmpty) {
       final top = todayOver.first;
       return (
-        '${top.label} stop for today',
-        'Aaj ${top.amount(top.todayConsumed)} ho gaya, target ${top.amount(top.adjustedTodayTarget)} tha. Ab water, protein/fiber clean, carbs/fat avoid.',
+        'Pause ${top.label} today',
+        'Today you logged ${top.amount(top.todayConsumed)} against a ${top.amount(top.adjustedTodayTarget)} target. Switch to water and clean protein/fiber; avoid extra carbs and fats.',
       );
     }
 
@@ -240,8 +311,8 @@ class WeeklyNutritionPlanNotifier extends Notifier<WeeklyNutritionPlanState> {
     if (close.isNotEmpty) {
       final top = close.first;
       return (
-        '${top.label} tight hai',
-        '${top.amount(top.remaining)} left for week. Aaj controlled rakho, kal ka budget ${top.amount(top.adjustedNextDayTarget)} ke around hoga.',
+        '${top.label} is tight',
+        '${top.amount(top.remaining)} left for this 7-day plan. Keep today controlled; tomorrow should stay near ${top.amount(top.adjustedNextDayTarget)}.',
       );
     }
 
@@ -249,7 +320,7 @@ class WeeklyNutritionPlanNotifier extends Notifier<WeeklyNutritionPlanState> {
     if (water.isBehindGoal) {
       return (
         'Plan under control',
-        'Macros okay. Water ${water.amount(water.target - water.consumed)} short hai this week, pehle hydration complete karo.',
+        'Macros are under control. You are ${water.amount(water.target - water.consumed)} short on water for this plan, so prioritize hydration.',
       );
     }
 
@@ -257,13 +328,13 @@ class WeeklyNutritionPlanNotifier extends Notifier<WeeklyNutritionPlanState> {
     if (protein.isBehindGoal) {
       return (
         'Protein pending',
-        '${protein.amount(protein.target - protein.consumed)} protein short hai week ke liye. Next meal lean protein rakho.',
+        'You are ${protein.amount(protein.target - protein.consumed)} short on protein for this plan. Make the next meal protein-forward.',
       );
     }
 
     return (
-      'Plan clean hai',
-      'Aaj ka execution simple: targets ke andar ho, water maintain karo, unnecessary snacks avoid.',
+      'Plan is clean',
+      'You are within target. Keep water steady and avoid unnecessary snacks.',
     );
   }
 
@@ -295,6 +366,36 @@ class WeeklyNutritionPlanNotifier extends Notifier<WeeklyNutritionPlanState> {
     }
 
     state = _calculate();
+  }
+
+  Future<void> resetStartDate(DateTime startDate) async {
+    final normalized = DateTime(startDate.year, startDate.month, startDate.day);
+    await ref
+        .read(localStorageProvider)
+        .saveSetting(
+          _startDateKey,
+          DateFormat('yyyy-MM-dd').format(normalized),
+        );
+    state = _calculate();
+  }
+
+  Future<void> setEnabled(bool enabled) async {
+    final storage = ref.read(localStorageProvider);
+    await storage.saveSetting(_enabledKey, enabled);
+    if (enabled) {
+      final current = storage.getSetting<String>(_startDateKey, '');
+      if (current.isEmpty) {
+        await resetStartDate(DateTime.now());
+        return;
+      }
+    }
+    state = _calculate();
+  }
+
+  Future<void> startToday() async {
+    final storage = ref.read(localStorageProvider);
+    await storage.saveSetting(_enabledKey, true);
+    await resetStartDate(DateTime.now());
   }
 }
 

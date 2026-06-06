@@ -4,7 +4,7 @@ import 'profile_provider.dart';
 import 'storage_provider.dart';
 
 /// MET values for common activities
-/// MET × weight(kg) × duration(hours) = calories burned
+/// MET x weight(kg) x duration(hours) = calories burned
 class ActivityPreset {
   final String name;
   final String icon;
@@ -114,11 +114,11 @@ class ActivityNotifier extends Notifier<ActivityState> {
   }
 
   /// ~0.04 kcal per step per kg body weight (average)
-  /// More precise: steps × stride_length(m) × 0.57(kcal/kg/km) × weight(kg)
+  /// More precise: steps x stride_length(m) x 0.57(kcal/kg/km) x weight(kg)
   static int _calcStepCalories(int steps, double weightKg) {
     if (steps <= 0) return 0;
-    // Average stride ~0.75m, so distance = steps × 0.00075 km
-    // Calories = distance(km) × weight(kg) × 0.57
+    // Average stride ~0.75m, so distance = steps x 0.00075 km
+    // Calories = distance(km) x weight(kg) x 0.57
     final distanceKm = steps * 0.00075;
     return (distanceKm * weightKg * 0.57).round();
   }
@@ -152,7 +152,7 @@ class ActivityNotifier extends Notifier<ActivityState> {
     final today = storage.getToday();
     final weightKg = profile?.weightKg ?? 70;
 
-    // MET × weight(kg) × duration(hours)
+    // MET x weight(kg) x duration(hours)
     final burned = (met * weightKg * (minutes / 60)).round();
     final activity = LoggedActivity(name, minutes, burned);
 

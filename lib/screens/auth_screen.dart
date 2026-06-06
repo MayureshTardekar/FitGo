@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 
 import '../services/supabase_service.dart';
-import 'onboarding_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -219,17 +218,11 @@ class _AuthScreenState extends State<AuthScreen> {
                     ],
                   ),
 
-                  // Skip for now
                   const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: _loading ? null : _handleSkip,
-                    child: Text(
-                      'Skip for now (offline only)',
-                      style: TextStyle(
-                        color: cs.onSurfaceVariant,
-                        fontSize: 12,
-                      ),
-                    ),
+                  Text(
+                    'Cloud sync is required to keep progress safe.',
+                    style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
@@ -254,6 +247,9 @@ class _AuthScreenState extends State<AuthScreen> {
           email: _emailCtrl.text.trim(),
           password: _passCtrl.text,
         );
+        if (mounted && Navigator.of(context).canPop()) {
+          Navigator.pop(context);
+        }
       } else {
         final res = await SupabaseService.signUp(
           email: _emailCtrl.text.trim(),
@@ -308,12 +304,5 @@ class _AuthScreenState extends State<AuthScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  void _handleSkip() {
-    // Go to onboarding — app works offline with Hive only
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const OnboardingScreen()));
   }
 }

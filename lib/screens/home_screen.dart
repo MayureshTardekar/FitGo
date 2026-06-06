@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/constants.dart';
+import '../core/theme.dart';
 import '../core/utils.dart';
 import '../providers/activity_provider.dart';
 import '../providers/calorie_provider.dart';
@@ -68,10 +69,8 @@ class HomeScreen extends ConsumerWidget {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
         children: const [
-          _WeeklyBanner(),
-          SizedBox(height: 16),
           _WeeklyNutritionCoachCard(),
           SizedBox(height: 16),
           _NetCaloriesBanner(),
@@ -114,7 +113,7 @@ class _MacroDashboard extends StatelessWidget {
                 value: nutrition.proteinGrams,
                 target: nutrition.targets.proteinGrams,
                 icon: Icons.egg_alt_outlined,
-                color: cs.primary,
+                color: FitColors.successGreen,
               ),
             ),
             const SizedBox(width: 8),
@@ -148,7 +147,7 @@ class _MacroDashboard extends StatelessWidget {
                 value: nutrition.fiberGrams,
                 target: nutrition.targets.fiberGrams,
                 icon: Icons.eco_outlined,
-                color: Colors.greenAccent,
+                color: FitColors.mintGreen,
               ),
             ),
           ],
@@ -161,7 +160,7 @@ class _MacroDashboard extends StatelessWidget {
           icon: Icons.cake_outlined,
           color: nutrition.sugarGrams > nutrition.targets.sugarGrams
               ? cs.error
-              : cs.secondary,
+              : FitColors.aqua,
           isLimit: true,
         ),
         if (nutrition.entries.isNotEmpty) ...[
@@ -291,90 +290,144 @@ class _WeeklyNutritionCoachCard extends ConsumerWidget {
     final urgent = plan.items.any(
       (item) => item.isOverWeekly || item.isTodayOver,
     );
+    final safeColor = plan.consistencyStreak > 0
+        ? FitColors.successGreen
+        : FitColors.aqua;
+    final statusColor = urgent ? cs.error : safeColor;
+
+    if (!plan.enabled) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(Icons.route_outlined, color: FitColors.aqua),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '7-Day Plan',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'Optional rolling nutrition plan',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              FilledButton.tonal(
+                onPressed: () =>
+                    ref.read(weeklyNutritionPlanProvider.notifier).startToday(),
+                child: const Text('Start'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  urgent ? Icons.warning_amber_rounded : Icons.route_outlined,
-                  color: urgent ? cs.error : cs.primary,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Weekly Plan',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        plan.weekLabel,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Edit weekly targets',
-                  onPressed: () => _showTargetDialog(context, ref, plan),
-                  icon: const Icon(Icons.tune),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: (urgent ? cs.error : cs.primary).withAlpha(18),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: (urgent ? cs.error : cs.primary).withAlpha(60),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    plan.headline,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: urgent ? cs.error : cs.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    plan.guidance,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: cs.onSurface,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            ...plan.items.map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _WeeklyPlanRow(
-                  item: item,
-                  icon: _iconFor(item.key),
-                  color: _colorFor(context, item),
-                ),
-              ),
-            ),
-          ],
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        initiallyExpanded: false,
+        leading: Icon(
+          urgent ? Icons.warning_amber_rounded : Icons.route_outlined,
+          color: statusColor,
         ),
+        title: Text(
+          'Weekly Plan',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${plan.weekLabel}  |  Day ${plan.cycleDay}/7',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${plan.consistencyStreak}-day streak | ${plan.headline}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: statusColor,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: statusColor.withAlpha(20),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: statusColor.withAlpha(70)),
+            ),
+            child: Text(
+              plan.guidance,
+              style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurface),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => ref
+                      .read(weeklyNutritionPlanProvider.notifier)
+                      .resetStartDate(DateTime.now()),
+                  icon: const Icon(Icons.restart_alt, size: 18),
+                  label: const Text('Start today'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              IconButton.filledTonal(
+                tooltip: 'Pause plan',
+                onPressed: () => ref
+                    .read(weeklyNutritionPlanProvider.notifier)
+                    .setEnabled(false),
+                icon: const Icon(Icons.pause),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton.tonalIcon(
+                  onPressed: () => _showTargetDialog(context, ref, plan),
+                  icon: const Icon(Icons.tune, size: 18),
+                  label: const Text('Targets'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...plan.items.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _WeeklyPlanRow(
+                item: item,
+                icon: _iconFor(item.key),
+                color: _colorFor(context, item),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -394,9 +447,9 @@ class _WeeklyNutritionCoachCard extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
     if (item.isOverWeekly || item.isTodayOver) return cs.error;
     if (item.isClose) return const Color(0xFFE85D04);
-    if (item.key == 'water') return cs.primary;
+    if (item.key == 'water') return FitColors.aqua;
     if (item.key == 'protein' || item.key == 'fiber') {
-      return Colors.greenAccent;
+      return FitColors.successGreen;
     }
     return const Color(0xFFFFBA08);
   }
@@ -608,8 +661,8 @@ class _WeeklyPlanRow extends StatelessWidget {
   }
 }
 
-class _WeeklyBanner extends ConsumerWidget {
-  const _WeeklyBanner();
+class WeeklyBanner extends ConsumerWidget {
+  const WeeklyBanner({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -658,7 +711,7 @@ class _WeeklyBanner extends ConsumerWidget {
                       ),
                     ),
                     Text(
-                      'Weekly: ${weekly.totalConsumed} / ${weekly.weeklyGoal} kcal',
+                      'This week: ${weekly.totalConsumed} / ${weekly.weeklyGoal} kcal',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: textColor.withAlpha(180),
                       ),
@@ -930,7 +983,7 @@ class _FastingCard extends ConsumerWidget {
                     HapticFeedback.lightImpact();
                   },
                   child: Text(
-                    fasting.isComplete ? 'Fast Complete — End' : 'End Fast',
+                    fasting.isComplete ? 'Fast Complete - End' : 'End Fast',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -1401,6 +1454,7 @@ class _CalorieCard extends ConsumerWidget {
     final isFasting = fasting.isFasting && !fasting.isComplete;
 
     return Card(
+      clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -1410,46 +1464,55 @@ class _CalorieCard extends ConsumerWidget {
               children: [
                 Icon(Icons.local_fire_department, color: colorScheme.error),
                 const SizedBox(width: 8),
-                Text(
-                  'Nutrition Today',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    'Nutrition Today',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 if (goalReached) ...[
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   Icon(
                     Icons.check_circle,
                     color: colorScheme.primary,
                     size: 20,
                   ),
                 ],
-                const Spacer(),
-                GestureDetector(
-                  onTap: () => _showEditGoalDialog(context, ref, weeklyGoal),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '$totalCalories / $dailyQuota kcal',
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: GestureDetector(
+                    onTap: () => _showEditGoalDialog(context, ref, weeklyGoal),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '$totalCalories / $dailyQuota kcal',
+                            style: Theme.of(context).textTheme.bodyLarge
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.edit,
+                            size: 14,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        Icons.edit,
-                        size: 14,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 2),
             Text(
-              'Weekly: ${weekly.totalConsumed} / $weeklyGoal kcal',
+              'This week: ${weekly.totalConsumed} / $weeklyGoal kcal',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
@@ -2084,7 +2147,7 @@ class _WeightCard extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final latestWeight = entries.isNotEmpty
         ? '${entries.last.weight.toStringAsFixed(1)} kg'
-        : '—';
+        : '-';
 
     return Card(
       child: Padding(
@@ -2232,7 +2295,7 @@ class _NetCaloriesBanner extends ConsumerWidget {
             children: [
               _netStat(context, 'Eaten', '$totalCalories', cs.error),
               Text(
-                '−',
+                '-',
                 style: TextStyle(color: cs.onSurfaceVariant, fontSize: 18),
               ),
               _netStat(

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/monthly_calorie_alert_provider.dart';
 import '../providers/profile_provider.dart';
 import '../providers/theme_provider.dart';
+import '../core/theme.dart';
 import '../services/supabase_service.dart';
 import 'auth_screen.dart';
 import 'onboarding_screen.dart';
@@ -30,6 +31,8 @@ class _ProfileBody extends ConsumerWidget {
     final calorieAlert = ref.watch(monthlyCalorieAlertProvider);
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final isLoggedIn = SupabaseService.isLoggedIn;
+    final accountEmail = SupabaseService.currentUser?.email ?? '';
 
     if (profile == null) {
       return const Center(child: Text('No profile found'));
@@ -74,7 +77,7 @@ class _ProfileBody extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                '${profile.age} years old  ·  ${profile.gender[0].toUpperCase()}${profile.gender.substring(1)}',
+                '${profile.age} years old | ${profile.gender[0].toUpperCase()}${profile.gender.substring(1)}',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: cs.onSurfaceVariant,
                 ),
@@ -526,32 +529,85 @@ class _ProfileBody extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _DetailRow(
-                  icon: Icons.cloud,
-                  label: 'Sync Status',
-                  value: SupabaseService.isLoggedIn ? 'Connected' : 'Offline',
-                  valueColor: SupabaseService.isLoggedIn
-                      ? cs.primary
-                      : cs.onSurfaceVariant,
-                ),
-                if (SupabaseService.isLoggedIn) ...[
-                  const SizedBox(height: 4),
-                  Row(
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isLoggedIn
+                        ? FitColors.successGreen.withAlpha(18)
+                        : cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isLoggedIn
+                          ? FitColors.successGreen.withAlpha(80)
+                          : cs.outlineVariant,
+                    ),
+                  ),
+                  child: Row(
                     children: [
-                      Icon(Icons.email_outlined, size: 20, color: cs.primary),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Email',
-                        style: TextStyle(color: cs.onSurfaceVariant),
+                      Icon(
+                        isLoggedIn
+                            ? Icons.verified_user_outlined
+                            : Icons.person_off_outlined,
+                        color: isLoggedIn
+                            ? FitColors.successGreen
+                            : cs.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isLoggedIn ? 'Signed in' : 'Guest profile',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            Text(
+                              isLoggedIn
+                                  ? accountEmail
+                                  : 'Sign in to sync progress online',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 32, top: 4),
-                    child: Text(
-                      SupabaseService.currentUser?.email ?? '',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 12),
+                _DetailRow(
+                  icon: Icons.cloud,
+                  label: 'Sync Status',
+                  value: isLoggedIn ? 'Online' : 'Not signed in',
+                  valueColor: isLoggedIn
+                      ? FitColors.successGreen
+                      : cs.onSurfaceVariant,
+                ),
+                if (!isLoggedIn) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.tonalIcon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const AuthScreen()),
+                      ),
+                      icon: const Icon(Icons.cloud_upload_outlined),
+                      label: const Text('Sign In / Create Account'),
                     ),
+                  ),
+                ],
+                if (isLoggedIn) ...[
+                  _DetailRow(
+                    icon: Icons.email_outlined,
+                    label: 'Email',
+                    value: accountEmail.isEmpty ? 'Connected' : accountEmail,
+                    valueColor: cs.onSurface,
                   ),
                 ],
               ],
@@ -637,7 +693,7 @@ class _ProfileBody extends ConsumerWidget {
               final nav = Navigator.of(context);
               await SupabaseService.signOut();
               if (context.mounted) {
-                // Pop everything and go back to root — auth gate will show login
+                // Pop everything and go back to root - auth gate will show login
                 nav.pushAndRemoveUntil(
                   MaterialPageRoute(builder: (_) => const AuthScreen()),
                   (route) => false,

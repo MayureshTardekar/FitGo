@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// FitGo color palette — dark navy base with red-orange-amber accents
+/// FitGo color palette - dark navy base with red-orange-amber accents
 class FitColors {
   static const inkBlack = Color(0xFF03071E);
   static const nightBordeaux = Color(0xFF370617);
@@ -12,6 +12,9 @@ class FitColors {
   static const deepSaffron = Color(0xFFF48C06);
   static const orange = Color(0xFFFAA307);
   static const amberFlame = Color(0xFFFFBA08);
+  static const successGreen = Color(0xFF22C55E);
+  static const mintGreen = Color(0xFF34D399);
+  static const aqua = Color(0xFF2DD4BF);
 
   static const gradient = [
     inkBlack,

@@ -19,7 +19,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // Step 1: Gender
   String _gender = 'male';
 
-  // Step 2: Body — sliders + DOB
+  // Step 2: Body - sliders + DOB
   double _weight = 70;
   double _height = 170;
   DateTime? _dob;
@@ -248,7 +248,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ),
                       Text(
                         _dob != null
-                            ? '${DateFormat('dd MMM yyyy').format(_dob!)}  ·  $_age years old'
+                            ? '${DateFormat('dd MMM yyyy').format(_dob!)} | $_age years old'
                             : 'Tap to select',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
@@ -601,7 +601,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final isDeficit = deficit > 0;
     final isSurplus = deficit < 0;
 
-    // 7700 kcal ≈ 1 kg of body fat
+    // 7700 kcal is about 1 kg of body fat
     final weeklyDeficit = deficit * 7;
     final kgPerWeek = weeklyDeficit / 7700;
     final kgPerMonth = kgPerWeek * 4.33;
@@ -676,7 +676,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
                 _mathRow(
                   'Weekly ${isDeficit ? "deficit" : "surplus"}',
-                  '${deficit.abs()} × 7 = ${weeklyDeficit.abs()} kcal',
+                  '${deficit.abs()} x 7 = ${weeklyDeficit.abs()} kcal',
                   isDeficit ? const Color(0xFFFFBA08) : const Color(0xFFE85D04),
                 ),
               ],
@@ -781,7 +781,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '* Based on 7,700 kcal ≈ 1 kg body fat. Actual results vary.',
+                    '* Based on roughly 7,700 kcal per 1 kg body fat. Actual results vary.',
                     style: TextStyle(fontSize: 9, color: cs.onSurfaceVariant),
                   ),
                 ],
@@ -966,7 +966,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                '~$daily kcal/day  ·  ${surplus >= 0 ? "+$surplus" : "$surplus"} vs TDEE',
+                '~$daily kcal/day | ${surplus >= 0 ? "+$surplus" : "$surplus"} vs TDEE',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: cs.onSurfaceVariant,
                 ),

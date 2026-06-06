@@ -240,7 +240,7 @@ class SupabaseService {
         await upsertAppSettings(settings);
       }
     } catch (_) {
-      // Silently fail — offline-first, will retry next time
+      // Silently fail - offline-first, will retry next time
     }
   }
 }

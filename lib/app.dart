@@ -50,7 +50,7 @@ class _AuthGateState extends State<_AuthGate> {
           return const _ProfileGate();
         }
 
-        // Check if user has local data (offline / skipped login)
+        // Require cloud login so progress can sync across devices.
         return const _OfflineOrAuthGate();
       },
     );
@@ -67,14 +67,6 @@ class _OfflineOrAuthGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profile = ref.watch(profileProvider);
-
-    // Has local profile = user skipped login before or was using offline
-    if (profile != null) {
-      return const _MainShell();
-    }
-
-    // No profile, not logged in = show auth
     return const AuthScreen();
   }
 }
@@ -118,7 +110,7 @@ class _ProfileGateState extends ConsumerState<_ProfileGate> {
           ref.invalidate(profileProvider);
         }
       } else {
-        // Has local profile — push to cloud
+        // Has local profile - push to cloud
         final storage = ref.read(localStorageProvider);
         await SupabaseService.syncToCloud(
           profile: localProfile,
@@ -128,7 +120,7 @@ class _ProfileGateState extends ConsumerState<_ProfileGate> {
         );
       }
     } catch (_) {
-      // Offline — no problem, local data works
+      // Offline - no problem, local data works
     }
   }
 
