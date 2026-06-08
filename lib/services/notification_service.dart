@@ -52,4 +52,41 @@ class NotificationService {
       await _channel.invokeMethod('cancelMonthlyCalorieAlert');
     } catch (_) {}
   }
+
+  static Future<void> scheduleFastingReminder({
+    required int intervalMinutes,
+    required int untilEpoch,
+    String title = 'Drink water',
+    String message = 'Stay zero-calorie until your fast ends.',
+  }) async {
+    if (!isSupported) return;
+    try {
+      await _channel.invokeMethod('scheduleFastingReminder', {
+        'intervalMinutes': intervalMinutes,
+        'untilEpoch': untilEpoch,
+        'title': title,
+        'message': message,
+      });
+    } catch (_) {}
+  }
+
+  static Future<void> showFastingReminderNow({
+    String title = 'Drink water',
+    String message = 'Stay zero-calorie until your fast ends.',
+  }) async {
+    if (!isSupported) return;
+    try {
+      await _channel.invokeMethod('showFastingReminderNow', {
+        'title': title,
+        'message': message,
+      });
+    } catch (_) {}
+  }
+
+  static Future<void> cancelFastingReminder() async {
+    if (!isSupported) return;
+    try {
+      await _channel.invokeMethod('cancelFastingReminder');
+    } catch (_) {}
+  }
 }

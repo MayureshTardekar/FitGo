@@ -45,6 +45,9 @@
             android:name=".CalorieAlertReceiver"
             android:exported="false" />
         <receiver
+            android:name=".FastingReminderReceiver"
+            android:exported="false" />
+        <receiver
             android:name=".BootReceiver"
             android:exported="false">
             <intent-filter>

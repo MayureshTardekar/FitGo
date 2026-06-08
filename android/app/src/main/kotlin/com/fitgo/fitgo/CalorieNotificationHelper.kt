@@ -149,7 +149,7 @@ object CalorieNotificationHelper {
         }
 
         return builder
-            .setSmallIcon(R.mipmap.launcher_icon)
+            .setSmallIcon(R.drawable.ic_stat_fitgo)
             .setContentTitle(title)
             .setContentText(message)
             .setStyle(Notification.BigTextStyle().bigText(message))

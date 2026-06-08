@@ -41,6 +41,30 @@ class MainActivity : FlutterActivity() {
                         CalorieNotificationHelper.cancelDailyAlert(this)
                         result.success(true)
                     }
+                    "scheduleFastingReminder" -> {
+                        FastingNotificationHelper.scheduleRepeating(
+                            context = this,
+                            intervalMinutes = call.argument<Int>("intervalMinutes") ?: 60,
+                            untilEpoch = call.argument<Long>("untilEpoch") ?: 0L,
+                            title = call.argument<String>("title") ?: "Drink water",
+                            message = call.argument<String>("message")
+                                ?: "Stay zero-calorie until your fast ends."
+                        )
+                        result.success(true)
+                    }
+                    "showFastingReminderNow" -> {
+                        FastingNotificationHelper.showNow(
+                            context = this,
+                            title = call.argument<String>("title") ?: "Drink water",
+                            message = call.argument<String>("message")
+                                ?: "Stay zero-calorie until your fast ends."
+                        )
+                        result.success(true)
+                    }
+                    "cancelFastingReminder" -> {
+                        FastingNotificationHelper.cancel(this)
+                        result.success(true)
+                    }
                     else -> result.notImplemented()
                 }
             }

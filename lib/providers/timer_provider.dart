@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../services/notification_service.dart';
 import 'storage_provider.dart';
 
 class FastingState {
@@ -100,7 +101,7 @@ class FastingNotifier extends Notifier<FastingState>
       }
 
       _startTicker();
-      return FastingState(
+      final activeState = FastingState(
         isFasting: true,
         elapsed: elapsed,
         target: target,
@@ -109,6 +110,8 @@ class FastingNotifier extends Notifier<FastingState>
         reminderInterval: Duration(minutes: epoch.reminderMinutes),
         lastReminderEpoch: epoch.lastReminderEpoch,
       );
+      Future.microtask(() => _scheduleNativeReminderFor(activeState));
+      return activeState;
     }
 
     return const FastingState();
@@ -144,6 +147,7 @@ class FastingNotifier extends Notifier<FastingState>
       lastReminderEpoch: now.millisecondsSinceEpoch,
     );
     _startTicker();
+    _scheduleNativeReminder(requestPermission: true, showConfirmation: true);
   }
 
   /// Edit the start time of an ongoing fast
@@ -167,6 +171,7 @@ class FastingNotifier extends Notifier<FastingState>
     today.fastingStartEpoch = newStart.millisecondsSinceEpoch;
     storage.saveMetrics(today);
     _recalculate();
+    _scheduleNativeReminder();
   }
 
   void configureReminder({bool? enabled, int? intervalMinutes}) {
@@ -193,6 +198,15 @@ class FastingNotifier extends Notifier<FastingState>
       reminderInterval: interval,
       lastReminderEpoch: nowEpoch,
     );
+
+    if (nextEnabled) {
+      _scheduleNativeReminder(
+        requestPermission: true,
+        showConfirmation: enabled == true,
+      );
+    } else {
+      _cancelNativeReminder();
+    }
   }
 
   /// Change fasting duration mid-fast
@@ -210,11 +224,13 @@ class FastingNotifier extends Notifier<FastingState>
     }
 
     state = state.copyWith(target: Duration(minutes: newMinutes));
+    _scheduleNativeReminder();
   }
 
   /// Mark the fast as ended at a custom time (for "I ended earlier")
   void stopFastingAt(DateTime endTime) {
     _ticker?.cancel();
+    _cancelNativeReminder();
     final epoch = _findActiveFastingEpoch();
     if (epoch != null) {
       _clearFasting(epoch.dateKey);
@@ -224,6 +240,7 @@ class FastingNotifier extends Notifier<FastingState>
 
   void stopFasting() {
     _ticker?.cancel();
+    _cancelNativeReminder();
     final epoch = _findActiveFastingEpoch();
     if (epoch != null) {
       _clearFasting(epoch.dateKey);
@@ -246,6 +263,9 @@ class FastingNotifier extends Notifier<FastingState>
     final now = DateTime.now();
     final startTime = DateTime.fromMillisecondsSinceEpoch(epoch.epoch);
     final elapsed = now.difference(startTime);
+    if (elapsed >= Duration(minutes: epoch.durationMinutes)) {
+      _cancelNativeReminder();
+    }
     var nextState = state.copyWith(
       elapsed: elapsed,
       startTime: startTime,
@@ -268,6 +288,68 @@ class FastingNotifier extends Notifier<FastingState>
     }
 
     state = nextState;
+  }
+
+  void _scheduleNativeReminder({
+    bool requestPermission = false,
+    bool showConfirmation = false,
+  }) {
+    _scheduleNativeReminderFor(
+      state,
+      requestPermission: requestPermission,
+      showConfirmation: showConfirmation,
+    );
+  }
+
+  void _scheduleNativeReminderFor(
+    FastingState value, {
+    bool requestPermission = false,
+    bool showConfirmation = false,
+  }) {
+    if (!NotificationService.isSupported ||
+        !value.isFasting ||
+        !value.remindersEnabled ||
+        value.startTime == null ||
+        value.reminderInterval.inMinutes <= 0) {
+      return;
+    }
+
+    final untilEpoch = value.startTime!
+        .add(value.target)
+        .millisecondsSinceEpoch;
+    if (untilEpoch <= DateTime.now().millisecondsSinceEpoch) {
+      _cancelNativeReminder();
+      return;
+    }
+
+    unawaited(() async {
+      if (requestPermission) {
+        final granted = await NotificationService.requestPermission();
+        if (!granted) return;
+      }
+
+      await NotificationService.scheduleFastingReminder(
+        intervalMinutes: value.reminderInterval.inMinutes,
+        untilEpoch: untilEpoch,
+      );
+
+      if (showConfirmation) {
+        await NotificationService.showFastingReminderNow(
+          title: 'Drink water',
+          message:
+              'Water reminders are active every ${_intervalLabel(value.reminderInterval)}. Stay zero-calorie.',
+        );
+      }
+    }());
+  }
+
+  void _cancelNativeReminder() {
+    unawaited(NotificationService.cancelFastingReminder());
+  }
+
+  String _intervalLabel(Duration interval) {
+    if (interval.inMinutes % 60 == 0) return '${interval.inHours}h';
+    return '${interval.inMinutes}m';
   }
 
   bool _shouldTriggerReminder(

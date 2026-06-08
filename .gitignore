@@ -58,3 +58,7 @@ Desktop.ini
 # IDE
 .vscode/
 .idea/
+
+# Keystore & Signing
+/android/key.properties
+*.jks

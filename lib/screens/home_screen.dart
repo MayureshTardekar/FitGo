@@ -7,6 +7,7 @@ import '../core/theme.dart';
 import '../core/utils.dart';
 import '../providers/activity_provider.dart';
 import '../providers/calorie_provider.dart';
+import '../providers/dashboard_focus_provider.dart';
 import '../providers/monthly_calorie_alert_provider.dart';
 import '../providers/profile_provider.dart';
 import '../providers/timer_provider.dart';
@@ -24,6 +25,14 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final selectedMode = ref.watch(dashboardFocusModeProvider);
+    final fasting = ref.watch(fastingProvider);
+    final effectiveMode = selectedMode == DashboardFocusMode.auto
+        ? fasting.isFasting
+              ? DashboardFocusMode.fasting
+              : DashboardFocusMode.nutrition
+        : selectedMode;
+
     ref.listen<FastingState>(fastingProvider, (previous, next) {
       if (previous?.reminderSignal == next.reminderSignal ||
           next.reminderSignal == 0 ||
@@ -70,24 +79,428 @@ class HomeScreen extends ConsumerWidget {
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-        children: const [
-          _WeeklyNutritionCoachCard(),
-          SizedBox(height: 16),
-          _NetCaloriesBanner(),
-          SizedBox(height: 16),
-          _FastingCard(),
-          SizedBox(height: 16),
-          _CalorieCard(),
-          SizedBox(height: 16),
-          _StepsCard(),
-          SizedBox(height: 16),
-          _ActivityCard(),
-          SizedBox(height: 16),
-          _WaterCard(),
-          SizedBox(height: 16),
-          _SleepCard(),
-          SizedBox(height: 16),
-          _WeightCard(),
+        children: [
+          const _DashboardFocusSelector(),
+          const SizedBox(height: 12),
+          const _TodayOverviewStrip(),
+          const SizedBox(height: 12),
+          ..._focusChildren(effectiveMode),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _focusChildren(DashboardFocusMode mode) {
+    final gap = const SizedBox(height: 12);
+
+    switch (mode) {
+      case DashboardFocusMode.fasting:
+        return [
+          const _FastingCard(),
+          gap,
+          const _FastingSupportCard(),
+          gap,
+          const _DashboardDropdown(
+            title: 'Food and more',
+            children: [
+              _CalorieCard(),
+              _WeeklyNutritionCoachCard(),
+              _NetCaloriesBanner(),
+              _WaterCard(),
+              _StepsCard(),
+              _ActivityCard(),
+              _SleepCard(),
+              _WeightCard(),
+            ],
+          ),
+        ];
+      case DashboardFocusMode.nutrition:
+        return [
+          const _WeeklyNutritionCoachCard(),
+          gap,
+          const _CalorieCard(),
+          gap,
+          const _DashboardDropdown(
+            title: 'Fast and more',
+            children: [
+              _FastingCard(),
+              _NetCaloriesBanner(),
+              _WaterCard(),
+              _StepsCard(),
+              _ActivityCard(),
+              _SleepCard(),
+              _WeightCard(),
+            ],
+          ),
+        ];
+      case DashboardFocusMode.full:
+        return [
+          const _WeeklyNutritionCoachCard(),
+          gap,
+          const _NetCaloriesBanner(),
+          gap,
+          const _FastingCard(),
+          gap,
+          const _CalorieCard(),
+          gap,
+          const _DashboardDropdown(
+            title: 'More today',
+            initiallyExpanded: true,
+            children: [
+              _WaterCard(),
+              _StepsCard(),
+              _ActivityCard(),
+              _SleepCard(),
+              _WeightCard(),
+            ],
+          ),
+        ];
+      case DashboardFocusMode.auto:
+        return const [];
+    }
+  }
+}
+
+class _DashboardFocusSelector extends ConsumerWidget {
+  const _DashboardFocusSelector();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = ref.watch(dashboardFocusModeProvider);
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: SegmentedButton<DashboardFocusMode>(
+        showSelectedIcon: false,
+        style: ButtonStyle(
+          visualDensity: VisualDensity.compact,
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 8),
+          ),
+          textStyle: WidgetStatePropertyAll(
+            Theme.of(
+              context,
+            ).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w700),
+          ),
+        ),
+        segments: const [
+          ButtonSegment(
+            value: DashboardFocusMode.auto,
+            icon: Icon(Icons.auto_awesome, size: 16),
+            label: Text('Auto'),
+          ),
+          ButtonSegment(
+            value: DashboardFocusMode.fasting,
+            icon: Icon(Icons.timer_outlined, size: 16),
+            label: Text('Fast'),
+          ),
+          ButtonSegment(
+            value: DashboardFocusMode.nutrition,
+            icon: Icon(Icons.restaurant_menu, size: 16),
+            label: Text('Food'),
+          ),
+          ButtonSegment(
+            value: DashboardFocusMode.full,
+            icon: Icon(Icons.view_agenda_outlined, size: 16),
+            label: Text('Full'),
+          ),
+        ],
+        selected: {selected},
+        onSelectionChanged: (value) =>
+            ref.read(dashboardFocusModeProvider.notifier).setMode(value.first),
+      ),
+    );
+  }
+}
+
+class _TodayOverviewStrip extends ConsumerWidget {
+  const _TodayOverviewStrip();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final nutrition = ref.watch(nutritionProvider);
+    final profile = ref.watch(profileProvider);
+    final water = ref.watch(waterProvider);
+    final fasting = ref.watch(fastingProvider);
+    final activity = ref.watch(activityProvider);
+    final cs = Theme.of(context).colorScheme;
+
+    final dailyQuota = profile?.dailyQuota ?? AppConstants.dailyCalorieGoalKcal;
+    final waterGoal = profile?.waterGoalMl ?? AppConstants.dailyWaterGoalMl;
+    final caloriesSafe = nutrition.totalCalories <= dailyQuota;
+    final waterSafe = water >= waterGoal;
+    final fastColor = fasting.isFasting ? FitColors.aqua : cs.onSurfaceVariant;
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _DashboardStatTile(
+                icon: Icons.local_fire_department,
+                label: 'Calories',
+                value: '${nutrition.totalCalories} / $dailyQuota',
+                color: caloriesSafe ? FitColors.successGreen : cs.error,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _DashboardStatTile(
+                icon: Icons.water_drop_outlined,
+                label: 'Water',
+                value: '$water / $waterGoal ml',
+                color: waterSafe ? FitColors.aqua : cs.primary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _DashboardStatTile(
+                icon: Icons.timer_outlined,
+                label: 'Fast',
+                value: fasting.isFasting
+                    ? formatDurationShort(fasting.elapsed)
+                    : 'Ready',
+                color: fastColor,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _DashboardStatTile(
+                icon: Icons.directions_walk,
+                label: 'Steps',
+                value: activity.steps.toString(),
+                color: activity.steps > 0
+                    ? FitColors.successGreen
+                    : cs.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _DashboardStatTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  const _DashboardStatTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      height: 68,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FastingSupportCard extends ConsumerWidget {
+  const _FastingSupportCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final water = ref.watch(waterProvider);
+    final profile = ref.watch(profileProvider);
+    final fasting = ref.watch(fastingProvider);
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final waterGoal = profile?.waterGoalMl ?? AppConstants.dailyWaterGoalMl;
+    final progress = waterGoal > 0
+        ? (water / waterGoal).clamp(0.0, 1.0).toDouble()
+        : 0.0;
+
+    if (!fasting.isFasting) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(Icons.water_drop_outlined, color: FitColors.aqua),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Start a fast to enable water reminders and calorie lock.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.lock_clock_outlined, color: FitColors.aqua),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Fasting Focus',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                if (fasting.remindersEnabled)
+                  Text(
+                    'Next ${formatDurationShort(fasting.untilNextReminder)}',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: FitColors.aqua,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Calories locked. Drink water and stay zero-calorie.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _AnimatedProgressBar(
+              progress: progress,
+              color: FitColors.aqua,
+              backgroundColor: cs.surfaceContainerHighest,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '$water / $waterGoal ml water',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.tonalIcon(
+                    onPressed: () =>
+                        ref.read(waterProvider.notifier).addWater(250),
+                    icon: const Icon(Icons.water_drop, size: 18),
+                    label: const Text('+250 ml'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () =>
+                        ref.read(waterProvider.notifier).addWater(500),
+                    icon: const Icon(Icons.local_drink_outlined, size: 18),
+                    label: const Text('+500 ml'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardDropdown extends StatelessWidget {
+  final String title;
+  final bool initiallyExpanded;
+  final List<Widget> children;
+
+  const _DashboardDropdown({
+    required this.title,
+    required this.children,
+    this.initiallyExpanded = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        initiallyExpanded: initiallyExpanded,
+        leading: Icon(Icons.expand_circle_down_outlined, color: cs.primary),
+        title: Text(
+          title,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        children: [
+          for (final child in children)
+            Padding(padding: const EdgeInsets.only(bottom: 12), child: child),
         ],
       ),
     );
@@ -1569,64 +1982,72 @@ class _CalorieCard extends ConsumerWidget {
               ),
             ],
             const SizedBox(height: 16),
-            // Quick add row
-            Row(
-              children: AppConstants.calorieQuickAdd
-                  .map(
-                    (amount) => Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: FilledButton.tonal(
-                          onPressed: () {
-                            HapticFeedback.lightImpact();
-                            ref
-                                .read(calorieProvider.notifier)
-                                .addCalories(amount);
-                            _checkMilestone(
-                              context,
-                              totalCalories + amount,
-                              dailyQuota,
-                            );
-                          },
-                          child: Text('+$amount'),
+            if (!isFasting) ...[
+              Row(
+                children: AppConstants.calorieQuickAdd
+                    .map(
+                      (amount) => Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: FilledButton.tonal(
+                            onPressed: () {
+                              HapticFeedback.lightImpact();
+                              ref
+                                  .read(calorieProvider.notifier)
+                                  .addCalories(amount);
+                              _checkMilestone(
+                                context,
+                                totalCalories + amount,
+                                dailyQuota,
+                              );
+                            },
+                            child: Text('+$amount'),
+                          ),
                         ),
                       ),
-                    ),
-                  )
-                  .toList(),
-            ),
-            const SizedBox(height: 8),
-            // Other + Edit row
-            Row(
-              children: [
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: FilledButton.tonalIcon(
-                      onPressed: () => _showAddNutritionDialog(
-                        context,
-                        ref,
-                        totalCalories,
-                        dailyQuota,
+                    )
+                    .toList(),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: FilledButton.tonalIcon(
+                        onPressed: () => _showAddNutritionDialog(
+                          context,
+                          ref,
+                          totalCalories,
+                          dailyQuota,
+                        ),
+                        icon: const Icon(Icons.restaurant_menu, size: 18),
+                        label: const Text('Add Food'),
                       ),
-                      icon: const Icon(Icons.restaurant_menu, size: 18),
-                      label: const Text('Add Food'),
                     ),
                   ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: OutlinedButton.icon(
-                      onPressed: () =>
-                          _showEditNutritionDialog(context, ref, nutrition),
-                      icon: const Icon(Icons.edit, size: 16),
-                      label: const Text('Edit'),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: OutlinedButton.icon(
+                        onPressed: () =>
+                            _showEditNutritionDialog(context, ref, nutrition),
+                        icon: const Icon(Icons.edit, size: 16),
+                        label: const Text('Edit'),
+                      ),
                     ),
                   ),
+                ],
+              ),
+            ] else
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: null,
+                  icon: const Icon(Icons.lock_outline, size: 18),
+                  label: const Text('Food locked during fast'),
                 ),
-              ],
-            ),
+              ),
           ],
         ),
       ),
