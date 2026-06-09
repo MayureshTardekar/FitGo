@@ -66,6 +66,30 @@ class LocalStorage {
     }
   }
 
+  Future<void> importCloudData({
+    List<DailyMetrics> metrics = const [],
+    List<WeightEntry> weights = const [],
+    Map<String, dynamic> settings = const {},
+  }) async {
+    for (final metric in metrics) {
+      if (!_metricsBox.containsKey(metric.dateKey)) {
+        await _metricsBox.put(metric.dateKey, metric);
+      }
+    }
+
+    for (final weight in weights) {
+      if (!_weightBox.containsKey(weight.dateKey)) {
+        await _weightBox.put(weight.dateKey, weight);
+      }
+    }
+
+    for (final entry in settings.entries) {
+      if (!_settingsBox.containsKey(entry.key)) {
+        await _settingsBox.put(entry.key, entry.value);
+      }
+    }
+  }
+
   // --- User Profile ---
 
   UserProfile? getProfile() => _profileBox.get('profile');

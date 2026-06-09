@@ -170,6 +170,54 @@ class SupabaseService {
         .order('date_key');
   }
 
+  static Future<List<DailyMetrics>> fetchAllMetrics() async {
+    final uid = userId;
+    if (uid == null) return [];
+
+    final rows = await client
+        .from('daily_metrics')
+        .select()
+        .eq('user_id', uid)
+        .order('date_key');
+
+    return rows.map<DailyMetrics>(_dailyMetricsFromRow).toList();
+  }
+
+  static DailyMetrics _dailyMetricsFromRow(Map<String, dynamic> row) {
+    return DailyMetrics(
+      dateKey: row['date_key'] as String,
+      totalCalories: _intValue(row['total_calories']),
+      waterMl: _intValue(row['water_ml']),
+      weight: _doubleValue(row['weight']),
+      fastingStartEpoch: _nullableIntValue(row['fasting_start_epoch']),
+      fastingDurationMinutes: _intValue(
+        row['fasting_duration_minutes'],
+        fallback: 960,
+      ),
+      calorieEntries: _intList(row['calorie_entries']),
+      steps: _intValue(row['steps']),
+      caloriesBurned: _intValue(row['calories_burned']),
+      activities: _stringList(row['activities']),
+      sleepMinutes: _intValue(row['sleep_minutes']),
+      sleepBedtime: row['sleep_bedtime'] as String? ?? '',
+      sleepWakeTime: row['sleep_wake_time'] as String? ?? '',
+      proteinGrams: _intValue(row['protein_grams']),
+      carbsGrams: _intValue(row['carbs_grams']),
+      fatGrams: _intValue(row['fat_grams']),
+      fiberGrams: _intValue(row['fiber_grams']),
+      sugarGrams: _intValue(row['sugar_grams']),
+      nutritionEntries: _stringList(row['nutrition_entries']),
+      fastingReminderMinutes: _intValue(
+        row['fasting_reminder_minutes'],
+        fallback: 60,
+      ),
+      fastingReminderEnabled: row['fasting_reminder_enabled'] as bool? ?? true,
+      fastingLastReminderEpoch: _nullableIntValue(
+        row['fasting_last_reminder_epoch'],
+      ),
+    );
+  }
+
   // ─── Weight Entries Sync ───────────────────────────────────────────────
 
   static Future<void> upsertWeight(WeightEntry w) async {
@@ -181,6 +229,26 @@ class SupabaseService {
       'date_key': w.dateKey,
       'weight': w.weight,
     }, onConflict: 'user_id,date_key');
+  }
+
+  static Future<List<WeightEntry>> fetchAllWeights() async {
+    final uid = userId;
+    if (uid == null) return [];
+
+    final rows = await client
+        .from('weight_entries')
+        .select()
+        .eq('user_id', uid)
+        .order('date_key');
+
+    return rows
+        .map<WeightEntry>(
+          (row) => WeightEntry(
+            dateKey: row['date_key'] as String,
+            weight: _doubleValue(row['weight']) ?? 0,
+          ),
+        )
+        .toList();
   }
 
   static Future<void> upsertAppSetting(String key, Object? value) async {
@@ -214,6 +282,22 @@ class SupabaseService {
         );
   }
 
+  static Future<Map<String, dynamic>> fetchAppSettings() async {
+    final uid = userId;
+    if (uid == null) return {};
+
+    final rows = await client
+        .from('app_settings')
+        .select('setting_key, setting_value')
+        .eq('user_id', uid);
+
+    return {
+      for (final row in rows)
+        if (row['setting_key'] is String)
+          row['setting_key'] as String: row['setting_value'],
+    };
+  }
+
   // ─── Bulk Sync (on login / app start) ──────────────────────────────────
 
   /// Push all local Hive data to Supabase
@@ -242,5 +326,34 @@ class SupabaseService {
     } catch (_) {
       // Silently fail - offline-first, will retry next time
     }
+  }
+
+  static int _intValue(Object? value, {int fallback = 0}) {
+    if (value is int) return value;
+    if (value is num) return value.round();
+    return fallback;
+  }
+
+  static int? _nullableIntValue(Object? value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.round();
+    return null;
+  }
+
+  static double? _doubleValue(Object? value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return null;
+  }
+
+  static List<int> _intList(Object? value) {
+    if (value is! List) return [];
+    return value.whereType<num>().map((item) => item.round()).toList();
+  }
+
+  static List<String> _stringList(Object? value) {
+    if (value is! List) return [];
+    return value.map((item) => item.toString()).toList();
   }
 }

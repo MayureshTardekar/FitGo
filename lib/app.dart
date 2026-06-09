@@ -1,9 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme.dart';
+import 'providers/activity_provider.dart';
+import 'providers/calorie_provider.dart';
+import 'providers/dashboard_focus_provider.dart';
+import 'providers/monthly_calorie_alert_provider.dart';
 import 'providers/profile_provider.dart';
 import 'providers/storage_provider.dart';
 import 'providers/theme_provider.dart';
+import 'providers/timer_provider.dart';
+import 'providers/water_provider.dart';
+import 'providers/weekly_nutrition_plan_provider.dart';
+import 'providers/weekly_provider.dart';
+import 'providers/weight_provider.dart';
 import 'screens/analytics_screen.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
@@ -93,35 +102,50 @@ class _ProfileGateState extends ConsumerState<_ProfileGate> {
     _synced = true;
 
     try {
+      final storage = ref.read(localStorageProvider);
       final localProfile = ref.read(profileProvider);
+      final cloudProfile = await SupabaseService.fetchProfile();
+      final cloudMetrics = await SupabaseService.fetchAllMetrics();
+      final cloudWeights = await SupabaseService.fetchAllWeights();
+      final cloudSettings = await SupabaseService.fetchAppSettings();
 
-      // If no local profile, try fetching from cloud
-      if (localProfile == null) {
-        final cloudProfile = await SupabaseService.fetchProfile();
-        if (cloudProfile != null && mounted) {
-          final storage = ref.read(localStorageProvider);
-          await storage.saveProfile(cloudProfile);
-          await SupabaseService.syncToCloud(
-            profile: cloudProfile,
-            metrics: storage.getAllMetrics(),
-            weights: storage.getAllWeights(),
-            settings: storage.getAllSettings(),
-          );
-          ref.invalidate(profileProvider);
-        }
-      } else {
-        // Has local profile - push to cloud
-        final storage = ref.read(localStorageProvider);
-        await SupabaseService.syncToCloud(
-          profile: localProfile,
-          metrics: storage.getAllMetrics(),
-          weights: storage.getAllWeights(),
-          settings: storage.getAllSettings(),
-        );
+      if (localProfile == null && cloudProfile != null) {
+        await storage.saveProfile(cloudProfile);
       }
+
+      await storage.importCloudData(
+        metrics: cloudMetrics,
+        weights: cloudWeights,
+        settings: cloudSettings,
+      );
+
+      final profileForSync = localProfile ?? cloudProfile;
+      await SupabaseService.syncToCloud(
+        profile: profileForSync,
+        metrics: storage.getAllMetrics(),
+        weights: storage.getAllWeights(),
+        settings: storage.getAllSettings(),
+      );
+
+      _refreshLocalProviders();
     } catch (_) {
       // Offline - no problem, local data works
     }
+  }
+
+  void _refreshLocalProviders() {
+    if (!mounted) return;
+    ref.invalidate(profileProvider);
+    ref.invalidate(nutritionProvider);
+    ref.invalidate(waterProvider);
+    ref.invalidate(fastingProvider);
+    ref.invalidate(activityProvider);
+    ref.invalidate(weightProvider);
+    ref.invalidate(weeklyProvider);
+    ref.invalidate(weeklyNutritionPlanProvider);
+    ref.invalidate(monthlyCalorieAlertProvider);
+    ref.invalidate(dashboardFocusModeProvider);
+    ref.invalidate(themeModeProvider);
   }
 
   @override
