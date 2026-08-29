@@ -15,6 +15,7 @@ import '../providers/water_provider.dart';
 import '../providers/weekly_nutrition_plan_provider.dart';
 import '../providers/weekly_provider.dart';
 import '../providers/weight_provider.dart';
+import '../providers/storage_provider.dart';
 import '../widgets/radial_dial.dart';
 import '../widgets/weight_chart.dart';
 import 'past_day_screen.dart';
@@ -77,15 +78,33 @@ class HomeScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-        children: [
-          const _DashboardFocusSelector(),
-          const SizedBox(height: 12),
-          const _TodayOverviewStrip(),
-          const SizedBox(height: 12),
-          ..._focusChildren(effectiveMode),
-        ],
+      body: RefreshIndicator(
+        onRefresh: () async {
+          final storage = ref.read(localStorageProvider);
+          await storage.syncWithCloud(overwrite: true);
+          ref.invalidate(profileProvider);
+          ref.invalidate(calorieProvider);
+          ref.invalidate(nutritionProvider);
+          ref.invalidate(waterProvider);
+          ref.invalidate(fastingProvider);
+          ref.invalidate(activityProvider);
+          ref.invalidate(weightProvider);
+          ref.invalidate(weeklyProvider);
+          ref.invalidate(weeklyNutritionPlanProvider);
+          ref.invalidate(monthlyCalorieAlertProvider);
+          ref.invalidate(dashboardFocusModeProvider);
+        },
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+          children: [
+            const _DashboardFocusSelector(),
+            const SizedBox(height: 12),
+            const _TodayOverviewStrip(),
+            const SizedBox(height: 12),
+            ..._focusChildren(effectiveMode),
+          ],
+        ),
       ),
     );
   }

@@ -8,35 +8,47 @@ import '../providers/profile_provider.dart';
 import '../providers/analytics_provider.dart';
 import '../providers/weekly_provider.dart';
 
-class AnalyticsScreen extends StatelessWidget {
+import '../providers/storage_provider.dart';
+
+class AnalyticsScreen extends ConsumerWidget {
   const AnalyticsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(title: const Text('Analytics'), centerTitle: true),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const _TimeframeToggle(),
-          const SizedBox(height: 16),
-          const _ScoreRing(),
-          SizedBox(height: 16),
-          _QuickStats(),
-          SizedBox(height: 16),
-          _CumulativeTrendChart(),
-          SizedBox(height: 16),
-          _DailyBarChart(),
-          SizedBox(height: 16),
-          _CalorieHeatmapRow(),
-          SizedBox(height: 16),
-          _DayByDayExpander(),
-          SizedBox(height: 16),
-          _InsightsCard(),
-          SizedBox(height: 16),
-          _ProjectionCard(),
-          SizedBox(height: 32),
-        ],
+      body: RefreshIndicator(
+        onRefresh: () async {
+          final storage = ref.read(localStorageProvider);
+          await storage.syncWithCloud(overwrite: true);
+          ref.invalidate(dashboardAnalyticsProvider);
+          ref.invalidate(weeklyProvider);
+          ref.invalidate(profileProvider);
+        },
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          children: const [
+            _TimeframeToggle(),
+            SizedBox(height: 16),
+            _ScoreRing(),
+            SizedBox(height: 16),
+            _QuickStats(),
+            SizedBox(height: 16),
+            _CumulativeTrendChart(),
+            SizedBox(height: 16),
+            _DailyBarChart(),
+            SizedBox(height: 16),
+            _CalorieHeatmapRow(),
+            SizedBox(height: 16),
+            _DayByDayExpander(),
+            SizedBox(height: 16),
+            _InsightsCard(),
+            SizedBox(height: 16),
+            _ProjectionCard(),
+            SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }
@@ -104,7 +116,7 @@ class _TimeframeToggle extends ConsumerWidget {
   }
 }
 
-// ─── Score Ring ──────────────────────────────────────────────────────────────
+// ─── Streak Card ──────────────────────────────────────────────────────────────
 
 class _ScoreRing extends ConsumerWidget {
   const _ScoreRing();
@@ -114,111 +126,98 @@ class _ScoreRing extends ConsumerWidget {
     final weekly = ref.watch(dashboardAnalyticsProvider);
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final streak = weekly.streakDays;
 
-    final score = weekly.consistencyScore;
-    final ringColor = score >= 70
-        ? const Color(0xFFFFBA08)
-        : score >= 40
-        ? const Color(0xFFE85D04)
-        : cs.error;
+    final String streakTitle;
+    final String streakSubtitle;
+
+    if (streak >= 30) {
+      streakTitle = '$streak-Day Streak 🔥';
+      streakSubtitle =
+          'Unstoppable! You\'re in the top 1% of consistent users. Keep going strong!';
+    } else if (streak >= 14) {
+      streakTitle = '$streak-Day Streak 🔥';
+      streakSubtitle =
+          'You\'re on fire! 2+ weeks of non-stop consistency. Keep the momentum going!';
+    } else if (streak >= 7) {
+      streakTitle = '$streak-Day Streak 🔥';
+      streakSubtitle =
+          '1 full week locked in! You\'re building a solid habit. Keep it up!';
+    } else if (streak >= 3) {
+      streakTitle = '$streak-Day Streak 🔥';
+      streakSubtitle =
+          'Great momentum! Log your daily targets to keep building your streak.';
+    } else if (streak >= 1) {
+      streakTitle = '$streak-Day Streak 🔥';
+      streakSubtitle =
+          'Streak started! Log your next meal or workout to keep it alive.';
+    } else {
+      streakTitle = 'Start Your Streak 🔥';
+      streakSubtitle =
+          'Log your calories or workout today to kick off your streak!';
+    }
 
     return Card(
+      elevation: 0,
+      color: cs.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: streak > 0
+              ? const Color(0xFFFF9800).withAlpha(70)
+              : cs.outlineVariant.withAlpha(50),
+        ),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(18),
         child: Row(
           children: [
-            // Animated score ring
-            SizedBox(
-              width: 90,
-              height: 90,
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: score / 100),
-                duration: const Duration(milliseconds: 800),
-                curve: Curves.easeOutCubic,
-                builder: (context, value, _) => CustomPaint(
-                  painter: _ScoreRingPainter(
-                    progress: value,
-                    color: ringColor,
-                    trackColor: cs.surfaceContainerHighest,
+            Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF9800), Color(0xFFE65100)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFF9800).withAlpha(70),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '$score',
-                          style: theme.textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: ringColor,
-                          ),
-                        ),
-                        Text(
-                          'score',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                ],
+              ),
+              child: const Center(
+                child: Icon(
+                  Icons.local_fire_department_rounded,
+                  color: Colors.white,
+                  size: 30,
                 ),
               ),
             ),
-            const SizedBox(width: 20),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Consistency Score',
+                    streakTitle,
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
+                      color: cs.onSurface,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    score >= 70
-                        ? 'Excellent! You\'re hitting your targets consistently.'
-                        : score >= 40
-                        ? 'Good effort. Try to stay within 15% of your daily target.'
-                        : 'Your intake varies a lot. Aim for steady daily portions.',
+                    streakSubtitle,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: cs.onSurfaceVariant,
+                      height: 1.3,
                     ),
                   ),
-                  if (weekly.streakDays >= 2) ...[
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE85D04).withAlpha(25),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.local_fire_department,
-                            size: 14,
-                            color: Color(0xFFFF9800),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${weekly.streakDays}-day streak',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFFFF9800),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -227,49 +226,6 @@ class _ScoreRing extends ConsumerWidget {
       ),
     );
   }
-}
-
-class _ScoreRingPainter extends CustomPainter {
-  final double progress;
-  final Color color;
-  final Color trackColor;
-
-  _ScoreRingPainter({
-    required this.progress,
-    required this.color,
-    required this.trackColor,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 6;
-    const strokeWidth = 8.0;
-
-    final trackPaint = Paint()
-      ..color = trackColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-    canvas.drawCircle(center, radius, trackPaint);
-
-    final arcPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -pi / 2,
-      2 * pi * progress,
-      false,
-      arcPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_ScoreRingPainter old) =>
-      old.progress != progress || old.color != color;
 }
 
 // ─── Quick Stats Row ─────────────────────────────────────────────────────────

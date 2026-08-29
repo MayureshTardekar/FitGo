@@ -70,23 +70,48 @@ class LocalStorage {
     List<DailyMetrics> metrics = const [],
     List<WeightEntry> weights = const [],
     Map<String, dynamic> settings = const {},
+    bool overwrite = false,
   }) async {
     for (final metric in metrics) {
-      if (!_metricsBox.containsKey(metric.dateKey)) {
+      if (overwrite || !_metricsBox.containsKey(metric.dateKey)) {
         await _metricsBox.put(metric.dateKey, metric);
       }
     }
 
     for (final weight in weights) {
-      if (!_weightBox.containsKey(weight.dateKey)) {
+      if (overwrite || !_weightBox.containsKey(weight.dateKey)) {
         await _weightBox.put(weight.dateKey, weight);
       }
     }
 
     for (final entry in settings.entries) {
-      if (!_settingsBox.containsKey(entry.key)) {
+      if (overwrite || !_settingsBox.containsKey(entry.key)) {
         await _settingsBox.put(entry.key, entry.value);
       }
+    }
+  }
+
+  /// Syncs with Supabase in the cloud and updates local cache
+  Future<void> syncWithCloud({bool overwrite = true}) async {
+    if (!SupabaseService.isLoggedIn) return;
+    try {
+      final cloudProfile = await SupabaseService.fetchProfile();
+      final cloudMetrics = await SupabaseService.fetchAllMetrics();
+      final cloudWeights = await SupabaseService.fetchAllWeights();
+      final cloudSettings = await SupabaseService.fetchAppSettings();
+
+      if (cloudProfile != null) {
+        await saveProfile(cloudProfile);
+      }
+
+      await importCloudData(
+        metrics: cloudMetrics,
+        weights: cloudWeights,
+        settings: cloudSettings,
+        overwrite: overwrite,
+      );
+    } catch (_) {
+      // Offline / network failure - fallback to local cache
     }
   }
 
