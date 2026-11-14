@@ -171,12 +171,37 @@ class NutritionNotifier extends Notifier<NutritionState> {
       }
     }
 
-    if (entries.isEmpty && today.calorieEntries.isNotEmpty) {
-      return today.calorieEntries
-          .map(
-            (calories) => NutritionEntry(label: 'Calories', calories: calories),
-          )
-          .toList();
+    if (entries.isEmpty) {
+      if (today.calorieEntries.isNotEmpty) {
+        // v2 logs only stored a list of calorie amounts.
+        return today.calorieEntries
+            .map(
+              (calories) =>
+                  NutritionEntry(label: 'Calories', calories: calories),
+            )
+            .toList();
+      }
+      if (today.totalCalories > 0) {
+        return [
+          NutritionEntry(label: 'Calories', calories: today.totalCalories),
+        ];
+      }
+      return entries;
+    }
+
+    // Older v3 builds appended all meals after a v2 log without turning the
+    // existing calories into entries. Keep the untracked remainder as an
+    // explicit entry so Undo and later meal additions cannot erase it.
+    final trackedCalories = entries.fold<int>(
+      0,
+      (sum, entry) => sum + entry.calories,
+    );
+    final untrackedCalories = today.totalCalories - trackedCalories;
+    if (untrackedCalories > 0) {
+      entries.insert(
+        0,
+        NutritionEntry(label: 'Earlier calories', calories: untrackedCalories),
+      );
     }
 
     return entries;
@@ -209,16 +234,10 @@ class NutritionNotifier extends Notifier<NutritionState> {
       sugarGrams: _clampInt(sugarGrams, 0, 400),
     );
 
-    today.totalCalories += entry.calories;
-    today.proteinGrams += entry.proteinGrams;
-    today.carbsGrams += entry.carbsGrams;
-    today.fatGrams += entry.fatGrams;
-    today.fiberGrams += entry.fiberGrams;
-    today.sugarGrams += entry.sugarGrams;
-    today.calorieEntries.add(entry.calories);
-    today.nutritionEntries.add(entry.toStorageString());
-    storage.saveMetrics(today);
-    state = _loadState();
+    // Write through the entry list so legacy calorie-only logs are normalised
+    // before the new meal is appended. This keeps Undo lossless.
+    final entries = _readEntries(today)..add(entry);
+    _writeEntries(entries);
   }
 
   void setCalories(int total) {
@@ -230,6 +249,67 @@ class NutritionNotifier extends Notifier<NutritionState> {
       fiberGrams: state.fiberGrams,
       sugarGrams: state.sugarGrams,
     );
+  }
+
+  /// Removes the most recently logged entry. Used by the Undo action.
+  NutritionEntry? removeLastEntry() {
+    final entries = List<NutritionEntry>.of(state.entries);
+    if (entries.isEmpty) return null;
+    final removed = entries.removeLast();
+    _writeEntries(entries);
+    return removed;
+  }
+
+  /// Removes one entry from today's log, normalising the stored format.
+  bool removeEntryAt(int index) {
+    final entries = List<NutritionEntry>.of(state.entries);
+    if (index < 0 || index >= entries.length) return false;
+    entries.removeAt(index);
+    _writeEntries(entries);
+    return true;
+  }
+
+  void _writeEntries(List<NutritionEntry> entries) {
+    final storage = ref.read(localStorageProvider);
+    final today = storage.getToday();
+
+    today.totalCalories = _clampInt(
+      entries.fold(0, (sum, entry) => sum + entry.calories),
+      0,
+      20000,
+    );
+    today.proteinGrams = _clampInt(
+      entries.fold(0, (sum, entry) => sum + entry.proteinGrams),
+      0,
+      500,
+    );
+    today.carbsGrams = _clampInt(
+      entries.fold(0, (sum, entry) => sum + entry.carbsGrams),
+      0,
+      800,
+    );
+    today.fatGrams = _clampInt(
+      entries.fold(0, (sum, entry) => sum + entry.fatGrams),
+      0,
+      400,
+    );
+    today.fiberGrams = _clampInt(
+      entries.fold(0, (sum, entry) => sum + entry.fiberGrams),
+      0,
+      200,
+    );
+    today.sugarGrams = _clampInt(
+      entries.fold(0, (sum, entry) => sum + entry.sugarGrams),
+      0,
+      400,
+    );
+    today.nutritionEntries = entries
+        .map((entry) => entry.toStorageString())
+        .toList();
+    today.calorieEntries = entries.map((entry) => entry.calories).toList();
+
+    storage.saveMetrics(today);
+    state = _loadState();
   }
 
   void setNutrition({

@@ -4,21 +4,27 @@ import 'package:intl/intl.dart';
 
 import '../models/daily_metrics.dart';
 import '../models/weight_entry.dart';
-import '../providers/calorie_provider.dart';
+import '../providers/analytics_provider.dart';
 import '../providers/monthly_calorie_alert_provider.dart';
 import '../providers/storage_provider.dart';
 import '../providers/weekly_nutrition_plan_provider.dart';
+import '../providers/weekly_provider.dart';
 import '../providers/weight_provider.dart';
 
-class PastDayLogScreen extends StatefulWidget {
-  const PastDayLogScreen({super.key});
+class PastDayLogScreen extends ConsumerStatefulWidget {
+  const PastDayLogScreen({super.key, this.initialDate});
+
+  /// Deep-linked date from Trends. Today and future dates are not editable
+  /// here, so they fall back to yesterday.
+  final DateTime? initialDate;
 
   @override
-  State<PastDayLogScreen> createState() => _PastDayLogScreenState();
+  ConsumerState<PastDayLogScreen> createState() => _PastDayLogScreenState();
 }
 
-class _PastDayLogScreenState extends State<PastDayLogScreen> {
+class _PastDayLogScreenState extends ConsumerState<PastDayLogScreen> {
   late DateTime _selectedDate;
+  late List<DateTime> _selectableDays;
   final _caloriesCtrl = TextEditingController();
   final _waterCtrl = TextEditingController();
   final _stepsCtrl = TextEditingController();
@@ -28,7 +34,27 @@ class _PastDayLogScreenState extends State<PastDayLogScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedDate = DateTime.now().subtract(const Duration(days: 1));
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final requested = widget.initialDate;
+    final initial = requested == null
+        ? today.subtract(const Duration(days: 1))
+        : DateTime(requested.year, requested.month, requested.day);
+
+    _selectedDate = initial.isBefore(today)
+        ? initial
+        : today.subtract(const Duration(days: 1));
+    _selectableDays = _buildSelectableDays(today);
+    _loadExistingData();
+  }
+
+  /// Five most recent days plus any deep-linked date outside that window.
+  List<DateTime> _buildSelectableDays(DateTime today) {
+    final days = List.generate(5, (i) => today.subtract(Duration(days: i + 1)));
+    final alreadyListed = days.any((day) => _isSameDay(day, _selectedDate));
+    if (!alreadyListed) days.add(_selectedDate);
+    days.sort((a, b) => b.compareTo(a));
+    return days;
   }
 
   @override
@@ -44,169 +70,159 @@ class _PastDayLogScreenState extends State<PastDayLogScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final now = DateTime.now();
-
-    // Generate last 5 days (excluding today)
-    final days = List.generate(5, (i) => now.subtract(Duration(days: i + 1)));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Log Past Day')),
-      body: Consumer(
-        builder: (context, ref, _) {
-          // Load existing data for selected date
-          _loadExistingData(ref);
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          // Date selector chips
+          Text(
+            'Select a day',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 70,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _selectableDays.length,
+              separatorBuilder: (_, i) => const SizedBox(width: 8),
+              itemBuilder: (context, i) {
+                final date = _selectableDays[i];
+                final isSelected = _isSameDay(date, _selectedDate);
+                final dayName = DateFormat('EEE').format(date);
+                final dayNum = date.day.toString();
+                final month = DateFormat('MMM').format(date);
 
-          return ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              // Date selector chips
-              Text(
-                'Select a day',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 70,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: days.length,
-                  separatorBuilder: (_, i) => const SizedBox(width: 8),
-                  itemBuilder: (context, i) {
-                    final date = days[i];
-                    final isSelected = _isSameDay(date, _selectedDate);
-                    final dayName = DateFormat('EEE').format(date);
-                    final dayNum = date.day.toString();
-                    final month = DateFormat('MMM').format(date);
-
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedDate = date;
-                          _saved = false;
-                          _clearFields();
-                        });
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: 60,
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? cs.primary.withAlpha(25)
-                              : cs.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: isSelected ? cs.primary : Colors.transparent,
-                            width: 2,
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedDate = date;
+                      _saved = false;
+                    });
+                    _clearFields();
+                    _loadExistingData();
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 60,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? cs.primary.withAlpha(25)
+                          : cs.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: isSelected ? cs.primary : Colors.transparent,
+                        width: 2,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          dayName,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isSelected
+                                ? cs.primary
+                                : cs.onSurfaceVariant,
                           ),
                         ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              dayName,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isSelected
-                                    ? cs.primary
-                                    : cs.onSurfaceVariant,
-                              ),
-                            ),
-                            Text(
-                              dayNum,
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: isSelected ? cs.primary : cs.onSurface,
-                              ),
-                            ),
-                            Text(
-                              month,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: isSelected
-                                    ? cs.primary
-                                    : cs.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
+                        Text(
+                          dayNum,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: isSelected ? cs.primary : cs.onSurface,
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Logging for: ${DateFormat('EEEE, d MMM yyyy').format(_selectedDate)}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 24),
+                        Text(
+                          month,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: isSelected
+                                ? cs.primary
+                                : cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Logging for: ${DateFormat('EEEE, d MMM yyyy').format(_selectedDate)}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 24),
 
-              // Fields
-              _buildField(
-                icon: Icons.local_fire_department,
-                label: 'Calories consumed',
-                hint: 'e.g. 1500',
-                suffix: 'kcal',
-                controller: _caloriesCtrl,
-                color: cs.error,
-              ),
-              const SizedBox(height: 16),
-              _buildField(
-                icon: Icons.water_drop,
-                label: 'Water intake',
-                hint: 'e.g. 2500',
-                suffix: 'ml',
-                controller: _waterCtrl,
-                color: cs.primary,
-              ),
-              const SizedBox(height: 16),
-              _buildField(
-                icon: Icons.directions_walk,
-                label: 'Steps walked',
-                hint: 'e.g. 8000',
-                suffix: 'steps',
-                controller: _stepsCtrl,
-                color: cs.primary,
-              ),
-              const SizedBox(height: 16),
-              _buildField(
-                icon: Icons.monitor_weight_outlined,
-                label: 'Weight (optional)',
-                hint: 'e.g. 75.5',
-                suffix: 'kg',
-                controller: _weightCtrl,
-                color: cs.tertiary,
-                isDecimal: true,
-              ),
-              const SizedBox(height: 24),
+          // Fields
+          _buildField(
+            icon: Icons.local_fire_department,
+            label: 'Calories consumed',
+            hint: 'e.g. 1500',
+            suffix: 'kcal',
+            controller: _caloriesCtrl,
+            color: cs.error,
+          ),
+          const SizedBox(height: 16),
+          _buildField(
+            icon: Icons.water_drop,
+            label: 'Water intake',
+            hint: 'e.g. 2500',
+            suffix: 'ml',
+            controller: _waterCtrl,
+            color: cs.primary,
+          ),
+          const SizedBox(height: 16),
+          _buildField(
+            icon: Icons.directions_walk,
+            label: 'Steps walked',
+            hint: 'e.g. 8000',
+            suffix: 'steps',
+            controller: _stepsCtrl,
+            color: cs.primary,
+          ),
+          const SizedBox(height: 16),
+          _buildField(
+            icon: Icons.monitor_weight_outlined,
+            label: 'Weight (optional)',
+            hint: 'e.g. 75.5',
+            suffix: 'kg',
+            controller: _weightCtrl,
+            color: cs.tertiary,
+            isDecimal: true,
+          ),
+          const SizedBox(height: 24),
 
-              // Save button
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: FilledButton.icon(
-                  onPressed: _saved ? null : () => _save(ref),
-                  icon: Icon(_saved ? Icons.check : Icons.save),
-                  label: Text(_saved ? 'Saved!' : 'Save'),
-                ),
-              ),
+          // Save button
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: FilledButton.icon(
+              onPressed: _saved ? null : _save,
+              icon: Icon(_saved ? Icons.check : Icons.save),
+              label: Text(_saved ? 'Saved!' : 'Save'),
+            ),
+          ),
 
-              if (_saved) ...[
-                const SizedBox(height: 12),
-                Text(
-                  'Data saved for ${DateFormat('d MMM').format(_selectedDate)}',
-                  style: TextStyle(color: cs.primary, fontSize: 13),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ],
-          );
-        },
+          if (_saved) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Data saved for ${DateFormat('d MMM').format(_selectedDate)}',
+              style: TextStyle(color: cs.primary, fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -236,27 +252,23 @@ class _PastDayLogScreenState extends State<PastDayLogScreen> {
     );
   }
 
-  void _loadExistingData(WidgetRef ref) {
+  void _loadExistingData() {
     final storage = ref.read(localStorageProvider);
     final dateKey = DateFormat('yyyy-MM-dd').format(_selectedDate);
     final existing = storage.getMetricsForDate(dateKey);
+    if (existing == null) return;
 
-    if (existing != null &&
-        _caloriesCtrl.text.isEmpty &&
-        _waterCtrl.text.isEmpty &&
-        _stepsCtrl.text.isEmpty) {
-      if (existing.totalCalories > 0) {
-        _caloriesCtrl.text = existing.totalCalories.toString();
-      }
-      if (existing.waterMl > 0) {
-        _waterCtrl.text = existing.waterMl.toString();
-      }
-      if (existing.steps > 0) {
-        _stepsCtrl.text = existing.steps.toString();
-      }
-      if (existing.weight != null) {
-        _weightCtrl.text = existing.weight.toString();
-      }
+    if (existing.totalCalories > 0) {
+      _caloriesCtrl.text = existing.totalCalories.toString();
+    }
+    if (existing.waterMl > 0) {
+      _waterCtrl.text = existing.waterMl.toString();
+    }
+    if (existing.steps > 0) {
+      _stepsCtrl.text = existing.steps.toString();
+    }
+    if (existing.weight != null) {
+      _weightCtrl.text = existing.weight.toString();
     }
   }
 
@@ -267,8 +279,9 @@ class _PastDayLogScreenState extends State<PastDayLogScreen> {
     _weightCtrl.clear();
   }
 
-  void _save(WidgetRef ref) {
+  Future<void> _save() async {
     final storage = ref.read(localStorageProvider);
+    final messenger = ScaffoldMessenger.of(context);
     final dateKey = DateFormat('yyyy-MM-dd').format(_selectedDate);
 
     // Get existing or create new
@@ -288,23 +301,27 @@ class _PastDayLogScreenState extends State<PastDayLogScreen> {
     if (steps != null) metrics.steps = steps;
     if (weight != null) metrics.weight = weight;
 
-    storage.saveMetrics(metrics);
+    await storage.saveMetrics(metrics);
 
-    // Invalidate calorie provider so weekly analytics / trend chart refresh
-    ref.invalidate(calorieProvider);
-    ref.invalidate(monthlyCalorieAlertProvider);
-    ref.invalidate(weeklyNutritionPlanProvider);
-
-    // Also save weight entry if provided
     if (weight != null) {
       final entry = WeightEntry(dateKey: dateKey, weight: weight);
-      storage.saveWeight(entry);
-      ref.invalidate(weightProvider);
+      await storage.saveWeight(entry);
     }
+
+    if (!mounted) return;
+
+    // Past-day edits bypass the providers that hold today's state, so refresh
+    // every derived view explicitly. Trends and the Today weekly budget read
+    // different providers and both must see the new totals.
+    ref.invalidate(weeklyProvider);
+    ref.invalidate(weeklyNutritionPlanProvider);
+    ref.invalidate(monthlyCalorieAlertProvider);
+    ref.invalidate(dashboardAnalyticsProvider);
+    if (weight != null) ref.invalidate(weightProvider);
 
     setState(() => _saved = true);
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    messenger.showSnackBar(
       SnackBar(
         content: Text(
           'Saved data for ${DateFormat('d MMM').format(_selectedDate)}',

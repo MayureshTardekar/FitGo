@@ -1,13 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../core/units.dart';
+import '../models/user_profile.dart';
+import '../providers/local_data_refresh.dart';
 import '../providers/monthly_calorie_alert_provider.dart';
 import '../providers/profile_provider.dart';
+import '../providers/storage_provider.dart';
+import '../providers/sync_status_provider.dart';
 import '../providers/theme_provider.dart';
-import '../core/theme.dart';
+import '../providers/units_provider.dart';
 import '../services/supabase_service.dart';
-import 'auth_screen.dart';
-import 'onboarding_screen.dart';
+import '../ui/components/fitgo_card.dart';
+import '../ui/components/fitgo_list_row.dart';
+import '../ui/components/fitgo_pill.dart';
+import '../ui/components/fitgo_primary_button.dart';
+import '../ui/components/fitgo_segmented_control.dart';
+import '../ui/components/fitgo_section_header.dart';
+import '../ui/components/fitgo_sync_status_pill.dart';
+import '../ui/haptics.dart';
+import '../ui/theme/fitgo_tokens.dart';
+
+const _appVersion = '3.0.0 (3)';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -28,711 +44,504 @@ class _ProfileBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(profileProvider);
     final themeMode = ref.watch(themeModeProvider);
+    final units = ref.watch(unitSystemProvider);
     final calorieAlert = ref.watch(monthlyCalorieAlertProvider);
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final isLoggedIn = SupabaseService.isLoggedIn;
-    final accountEmail = SupabaseService.currentUser?.email ?? '';
 
     if (profile == null) {
       return const Center(child: Text('No profile found'));
     }
 
-    final bmi =
-        profile.weightKg /
-        ((profile.heightCm / 100) * (profile.heightCm / 100));
-    final bmiCategory = bmi < 18.5
-        ? 'Underweight'
-        : bmi < 25
-        ? 'Normal'
-        : bmi < 30
-        ? 'Overweight'
-        : 'Obese';
-    final bmiColor = bmi < 18.5
-        ? const Color(0xFFE85D04)
-        : bmi < 25
-        ? cs.primary
-        : bmi < 30
-        ? const Color(0xFFE85D04)
-        : cs.error;
-
     final dailyFromWeekly = (profile.weeklyCalorieGoal / 7).round();
     final deficit = profile.tdee - dailyFromWeekly;
+    final monthlyKg = deficit.abs() * 30 / 7700;
+    final projection = deficit.abs() < 25
+        ? 'Maintaining'
+        : deficit > 0
+        ? '−${monthlyKg.toStringAsFixed(1)} kg/mo'
+        : '+${monthlyKg.toStringAsFixed(1)} kg/mo';
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(
+        FitGoSpacing.md,
+        FitGoSpacing.sm,
+        FitGoSpacing.md,
+        FitGoSpacing.xxxl,
+      ),
       children: [
-        // Avatar + name area
-        Center(
-          child: Column(
-            children: [
-              CircleAvatar(
-                radius: 40,
-                backgroundColor: cs.primaryContainer,
-                child: Icon(
-                  profile.gender == 'male' ? Icons.male : Icons.female,
-                  size: 40,
-                  color: cs.primary,
-                ),
+        _ProfileHeader(profile: profile, units: units),
+        const SizedBox(height: FitGoSpacing.xl),
+        const FitGoSectionHeader(
+          title: 'Goals',
+          subtitle: 'Targets and body measurements.',
+        ),
+        _SettingsGroup(
+          children: [
+            FitGoListRow(
+              leadingIcon: Icons.local_fire_department_outlined,
+              title: 'Calorie budget',
+              subtitle:
+                  '≈ $dailyFromWeekly kcal/day · '
+                  '${(dailyFromWeekly * 30).round()} kcal/month',
+              trailingText: '${profile.weeklyCalorieGoal} / wk',
+              onTap: () =>
+                  _editField(context, ref, 'weeklyCalories', profile, units),
+            ),
+            FitGoListRow(
+              leadingIcon: Icons.water_drop_outlined,
+              title: 'Water goal',
+              subtitle: 'Daily hydration target',
+              trailingText: units.formatVolume(profile.waterGoalMl.toDouble()),
+              onTap: () => _editField(context, ref, 'water', profile, units),
+            ),
+            FitGoListRow(
+              leadingIcon: Icons.flag_outlined,
+              title: 'Weight goal',
+              subtitle: 'Used for your calorie projection',
+              trailingText: _goalLabel(profile.weightGoal),
+              onTap: () => _pickWeightGoal(context, ref, profile),
+            ),
+            FitGoListRow(
+              leadingIcon: Icons.monitor_weight_outlined,
+              title: 'Weight',
+              trailingText: units.formatWeight(profile.weightKg),
+              onTap: () => _editField(context, ref, 'weight', profile, units),
+            ),
+            FitGoListRow(
+              leadingIcon: Icons.height_rounded,
+              title: 'Height',
+              trailingText: units.isMetric
+                  ? '${profile.heightCm.toStringAsFixed(0)} cm'
+                  : formatFeetInches(profile.heightCm),
+              onTap: () => _editField(context, ref, 'height', profile, units),
+            ),
+            FitGoListRow(
+              leadingIcon: Icons.insights_outlined,
+              title: 'Weight projection',
+              subtitle: 'Estimated from your daily budget',
+              trailingText: projection,
+              onTap: () => _showProjection(context, profile),
+            ),
+            FitGoListRow(
+              leadingIcon: Icons.restart_alt_rounded,
+              title: 'Redo full setup',
+              subtitle: 'Re-run onboarding and replace your goals',
+              destructive: true,
+              onTap: () => _confirmRedoSetup(context),
+            ),
+          ],
+        ),
+        const SizedBox(height: FitGoSpacing.xl),
+        const FitGoSectionHeader(
+          title: 'Preferences',
+          subtitle: 'Appearance, units, and reminders.',
+        ),
+        _SettingsGroup(
+          children: [
+            _SegmentedSetting<ThemeMode>(
+              icon: themeMode == ThemeMode.dark
+                  ? Icons.dark_mode_outlined
+                  : themeMode == ThemeMode.light
+                  ? Icons.light_mode_outlined
+                  : Icons.brightness_auto_outlined,
+              title: 'Appearance',
+              subtitle: themeMode == ThemeMode.system
+                  ? 'Follows your device setting'
+                  : themeMode == ThemeMode.dark
+                  ? 'Always use the dark theme'
+                  : 'Always use the light theme',
+              values: const [ThemeMode.system, ThemeMode.light, ThemeMode.dark],
+              labels: const ['System', 'Light', 'Dark'],
+              selected: themeMode,
+              onChanged: (mode) {
+                FitGoHaptics.select();
+                ref.read(themeModeProvider.notifier).setMode(mode);
+              },
+            ),
+            _SegmentedSetting<UnitSystem>(
+              icon: Icons.straighten_rounded,
+              title: 'Units',
+              subtitle: 'Stored as kg and ml either way',
+              values: const [UnitSystem.metric, UnitSystem.imperial],
+              labels: const ['Metric', 'Imperial'],
+              selected: units,
+              onChanged: (system) {
+                FitGoHaptics.select();
+                ref.read(unitSystemProvider.notifier).setSystem(system);
+              },
+            ),
+            FitGoListRow(
+              leadingIcon: Icons.notification_important_outlined,
+              title: 'Monthly Calorie Guard',
+              subtitle: 'Warn before you exceed a monthly limit',
+              showChevron: false,
+              trailing: Switch.adaptive(
+                value: calorieAlert.enabled,
+                onChanged: (value) => ref
+                    .read(monthlyCalorieAlertProvider.notifier)
+                    .updateSettings(enabled: value),
               ),
-              const SizedBox(height: 12),
+            ),
+            _CalorieGuardSummary(alert: calorieAlert),
+            FitGoListRow(
+              leadingIcon: Icons.calendar_month_outlined,
+              title: 'Max intake',
+              trailingText: '${calorieAlert.monthlyLimit} kcal',
+              onTap: () => _editCalorieGuardNumber(
+                context,
+                ref,
+                title: 'Max Monthly Intake',
+                current: calorieAlert.monthlyLimit,
+                suffix: 'kcal',
+                onSave: (value) => ref
+                    .read(monthlyCalorieAlertProvider.notifier)
+                    .updateSettings(monthlyLimit: value),
+              ),
+            ),
+            FitGoListRow(
+              leadingIcon: Icons.priority_high_rounded,
+              title: 'Warn at',
+              trailingText:
+                  '${calorieAlert.warningPercent}% · ${calorieAlert.warningAt} kcal',
+              onTap: () => _editCalorieGuardNumber(
+                context,
+                ref,
+                title: 'Warning Percent',
+                current: calorieAlert.warningPercent,
+                suffix: '%',
+                onSave: (value) => ref
+                    .read(monthlyCalorieAlertProvider.notifier)
+                    .updateSettings(warningPercent: value),
+              ),
+            ),
+            FitGoListRow(
+              leadingIcon: Icons.schedule_rounded,
+              title: 'Alert time',
+              trailingText: calorieAlert.alertTimeLabel,
+              onTap: () => _pickCalorieGuardTime(context, ref, calorieAlert),
+            ),
+            FitGoListRow(
+              leadingIcon: Icons.message_outlined,
+              title: 'Message',
+              subtitle: calorieAlert.message,
+              onTap: () =>
+                  _editCalorieGuardMessage(context, ref, calorieAlert.message),
+            ),
+          ],
+        ),
+        const SizedBox(height: FitGoSpacing.xl),
+        const FitGoSectionHeader(
+          title: 'Account & Backup',
+          subtitle: 'Saved here first, backed up when online.',
+        ),
+        const _AccountBackupCard(),
+        const SizedBox(height: FitGoSpacing.xl),
+        const FitGoSectionHeader(
+          title: 'Help & Privacy',
+          subtitle: 'How your data is handled.',
+        ),
+        _SettingsGroup(
+          children: [
+            FitGoListRow(
+              leadingIcon: Icons.sync_rounded,
+              title: 'How sync works',
+              onTap: () => _showInfoDialog(
+                context,
+                title: 'How sync works',
+                body:
+                    'FitGo saves every change on this device first. When you '
+                    'are signed in, changes are queued and uploaded to your '
+                    'private cloud backup. A cloud refresh never overwrites a '
+                    'change that is still waiting to upload. Guest profiles '
+                    'stay on this device until you choose to import them.',
+              ),
+            ),
+            FitGoListRow(
+              leadingIcon: Icons.privacy_tip_outlined,
+              title: 'Privacy & your data',
+              onTap: () => _showInfoDialog(
+                context,
+                title: 'Privacy & your data',
+                body:
+                    'Food, fasting, water, activity, sleep, and weight logs '
+                    'are stored on this device. Signed-in backups are stored '
+                    'in your private Supabase account. FitGo does not sell '
+                    'your data, use it for advertising, or share health data '
+                    'with third parties.',
+                url: 'https://fitgo.app/privacy',
+              ),
+            ),
+            FitGoListRow(
+              leadingIcon: Icons.description_outlined,
+              title: 'Terms of use',
+              onTap: () => _showInfoDialog(
+                context,
+                title: 'Terms of use',
+                body:
+                    'FitGo is a personal tracking tool, not medical advice. '
+                    'Use it alongside professional guidance and do not misuse '
+                    'the service or upload unlawful content.',
+                url: 'https://fitgo.app/terms',
+              ),
+            ),
+            FitGoListRow(
+              leadingIcon: Icons.help_outline_rounded,
+              title: 'Support',
+              onTap: () => _showInfoDialog(
+                context,
+                title: 'Support',
+                body:
+                    'Help articles and contact details are published at the '
+                    'support page. Open the address below in your browser.',
+                url: 'https://fitgo.app/support',
+              ),
+            ),
+            const FitGoListRow(
+              leadingIcon: Icons.info_outline_rounded,
+              title: 'App version',
+              trailingText: _appVersion,
+              showChevron: false,
+            ),
+          ],
+        ),
+        const SizedBox(height: FitGoSpacing.xl),
+        Center(
+          child: Text(
+            'Developed by Mayuresh',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: context.tokens.textSecondary,
+              letterSpacing: 1.1,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _goalLabel(String goal) => switch (goal) {
+    'lose' => 'Lose weight',
+    'gain' => 'Gain weight',
+    'custom' => 'Custom budget',
+    _ => 'Maintain weight',
+  };
+
+  void _editField(
+    BuildContext context,
+    WidgetRef ref,
+    String field,
+    UserProfile profile,
+    UnitSystem units,
+  ) {
+    final controller = TextEditingController();
+    String label;
+    String suffix;
+
+    switch (field) {
+      case 'weight':
+        label = 'Weight';
+        suffix = units.weightLabel;
+        controller.text = units
+            .weightFromKg(profile.weightKg)
+            .toStringAsFixed(1);
+      case 'height':
+        label = 'Height';
+        suffix = units.heightLabel;
+        controller.text = units.isMetric
+            ? profile.heightCm.toStringAsFixed(0)
+            : units.heightFromCm(profile.heightCm).toStringAsFixed(1);
+      case 'weeklyCalories':
+        label = 'Weekly calorie budget';
+        suffix = 'kcal/week';
+        controller.text = '${profile.weeklyCalorieGoal}';
+      case 'water':
+        label = 'Daily water goal';
+        suffix = units.volumeLabel;
+        controller.text = units
+            .volumeFromMl(profile.waterGoalMl.toDouble())
+            .toStringAsFixed(units.isMetric ? 0 : 1);
+      default:
+        return;
+    }
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Edit $label'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(
+            labelText: label,
+            suffixText: suffix,
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final value = double.tryParse(controller.text.trim());
+              if (value == null || value <= 0) return;
+
+              switch (field) {
+                case 'weight':
+                  final updated = profile.copy()
+                    ..weightKg = units.weightToKg(value);
+                  ref.read(profileProvider.notifier).saveProfile(updated);
+                case 'height':
+                  final updated = profile.copy()
+                    ..heightCm = units.heightToCm(value);
+                  ref.read(profileProvider.notifier).saveProfile(updated);
+                case 'weeklyCalories':
+                  ref
+                      .read(profileProvider.notifier)
+                      .updateGoals(
+                        weeklyCalorieGoal: value.round(),
+                        calorieGoal: (value / 7).round(),
+                      );
+                case 'water':
+                  ref
+                      .read(profileProvider.notifier)
+                      .updateGoals(
+                        waterGoalMl: units.volumeToMl(value).round(),
+                      );
+              }
+              Navigator.pop(ctx);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickWeightGoal(
+    BuildContext context,
+    WidgetRef ref,
+    UserProfile profile,
+  ) async {
+    const goals = [
+      ('lose', 'Lose weight'),
+      ('maintain', 'Maintain weight'),
+      ('gain', 'Gain weight'),
+      ('custom', 'Custom budget'),
+    ];
+
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Weight goal'),
+        children: [
+          for (final (value, label) in goals)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, value),
+              child: Row(
+                children: [
+                  Icon(
+                    profile.weightGoal == value
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                    size: 20,
+                  ),
+                  const SizedBox(width: FitGoSpacing.sm),
+                  Text(label),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+
+    if (selected == null) return;
+    await ref.read(profileProvider.notifier).updateGoals(weightGoal: selected);
+  }
+
+  void _showProjection(BuildContext context, UserProfile profile) {
+    final dailyTarget = (profile.weeklyCalorieGoal / 7).round();
+    final deficit = profile.tdee - dailyTarget;
+    final monthlyKg = deficit.abs() * 30 / 7700;
+    final theme = Theme.of(context);
+    final tokens = context.tokens;
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Weight projection'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _MathRow(
+                label: 'Maintenance (TDEE)',
+                value: '${profile.tdee} kcal/day',
+              ),
+              _MathRow(label: 'Daily target', value: '$dailyTarget kcal/day'),
+              _MathRow(
+                label: deficit >= 0 ? 'Daily deficit' : 'Daily surplus',
+                value: deficit >= 0
+                    ? '−${deficit.abs()} kcal/day'
+                    : '+${deficit.abs()} kcal/day',
+                isHighlight: true,
+                color: deficit >= 0 ? tokens.aqua : tokens.emberDeep,
+              ),
+              const SizedBox(height: FitGoSpacing.sm),
+              _MathRow(
+                label: 'Monthly impact',
+                value: '${deficit.abs() * 30} kcal',
+              ),
+              _MathRow(
+                label: 'Equivalent weight',
+                value: '${monthlyKg.toStringAsFixed(2)} kg',
+                isHighlight: true,
+              ),
+              const SizedBox(height: FitGoSpacing.sm),
               Text(
-                '${profile.age} years old | ${profile.gender[0].toUpperCase()}${profile.gender.substring(1)}',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: cs.onSurfaceVariant,
+                '*Estimates use 7700 kcal = 1 kg. Actual results vary.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: tokens.textSecondary,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 24),
-
-        // BMI Card
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.monitor_heart, color: bmiColor),
-                    const SizedBox(width: 8),
-                    Text(
-                      'BMI',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: bmiColor.withAlpha(20),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        bmiCategory,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: bmiColor,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  bmi.toStringAsFixed(1),
-                  style: theme.textTheme.headlineLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: bmiColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                // BMI scale bar
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: SizedBox(
-                    height: 8,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: 185,
-                          child: Container(color: const Color(0xFFE85D04)),
-                        ),
-                        Expanded(flex: 65, child: Container(color: cs.primary)),
-                        Expanded(
-                          flex: 50,
-                          child: Container(color: const Color(0xFFE85D04)),
-                        ),
-                        Expanded(flex: 200, child: Container(color: cs.error)),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('18.5', style: _scaleStyle(cs)),
-                    Text('25', style: _scaleStyle(cs)),
-                    Text('30', style: _scaleStyle(cs)),
-                  ],
-                ),
-              ],
-            ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
           ),
-        ),
-        const SizedBox(height: 16),
-
-        // Body Stats Card
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Body Stats',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _DetailRow(
-                  icon: Icons.monitor_weight_outlined,
-                  label: 'Weight',
-                  value: '${profile.weightKg.toStringAsFixed(1)} kg',
-                  onEdit: () => _editField(
-                    context,
-                    ref,
-                    'weight',
-                    profile.weightKg.toString(),
-                  ),
-                ),
-                _DetailRow(
-                  icon: Icons.height,
-                  label: 'Height',
-                  value: '${profile.heightCm.toStringAsFixed(0)} cm',
-                  onEdit: () => _editField(
-                    context,
-                    ref,
-                    'height',
-                    profile.heightCm.toString(),
-                  ),
-                ),
-                _DetailRow(
-                  icon: Icons.cake_outlined,
-                  label: 'Age',
-                  value: '${profile.age} years',
-                ),
-                _DetailRow(
-                  icon: Icons.person_outline,
-                  label: 'Gender',
-                  value:
-                      '${profile.gender[0].toUpperCase()}${profile.gender.substring(1)}',
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Goals Card
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Your Goals Budget',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _DetailRow(
-                  icon: Icons.calendar_month,
-                  label: 'Monthly Budget',
-                  value: '${(profile.weeklyCalorieGoal / 7 * 30).round()} kcal',
-                  onEdit: () => _editField(
-                    context,
-                    ref,
-                    'monthlyCalories',
-                    (profile.weeklyCalorieGoal / 7 * 30).round().toString(),
-                  ),
-                ),
-                _DetailRow(
-                  icon: Icons.date_range,
-                  label: 'Weekly Target',
-                  value: '${profile.weeklyCalorieGoal} kcal',
-                  onEdit: () => _editField(
-                    context,
-                    ref,
-                    'weeklyCalories',
-                    profile.weeklyCalorieGoal.toString(),
-                  ),
-                ),
-                _DetailRow(
-                  icon: Icons.local_fire_department,
-                  label: 'Daily Target',
-                  value: '$dailyFromWeekly kcal/day',
-                ),
-                _DetailRow(
-                  icon: Icons.water_drop,
-                  label: 'Water Goal',
-                  value: '${profile.waterGoalMl} ml/day',
-                  onEdit: () => _editField(
-                    context,
-                    ref,
-                    'water',
-                    profile.waterGoalMl.toString(),
-                  ),
-                ),
-                _DetailRow(
-                  icon: Icons.flag_outlined,
-                  label: 'Weight Goal',
-                  value: _goalLabel(profile.weightGoal),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Monthly Calorie Guard Card
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.notification_important_outlined,
-                      color: cs.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Monthly Calorie Guard',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    Switch(
-                      value: calorieAlert.enabled,
-                      onChanged: (value) => ref
-                          .read(monthlyCalorieAlertProvider.notifier)
-                          .updateSettings(enabled: value),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: LinearProgressIndicator(
-                    value: calorieAlert.monthlyLimit > 0
-                        ? (calorieAlert.monthTotal / calorieAlert.monthlyLimit)
-                              .clamp(0.0, 1.0)
-                        : 0.0,
-                    minHeight: 8,
-                    backgroundColor: cs.surfaceContainerHighest,
-                    color: calorieAlert.isOverLimit
-                        ? cs.error
-                        : calorieAlert.isInWarningZone
-                        ? const Color(0xFFE85D04)
-                        : cs.primary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${calorieAlert.monthTotal} / ${calorieAlert.monthlyLimit} kcal this month',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: calorieAlert.isOverLimit
-                        ? cs.error
-                        : cs.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _DetailRow(
-                  icon: Icons.calendar_month,
-                  label: 'Max Intake',
-                  value: '${calorieAlert.monthlyLimit} kcal',
-                  onEdit: () => _editCalorieGuardNumber(
-                    context,
-                    ref,
-                    title: 'Max Monthly Intake',
-                    current: calorieAlert.monthlyLimit,
-                    suffix: 'kcal',
-                    onSave: (value) => ref
-                        .read(monthlyCalorieAlertProvider.notifier)
-                        .updateSettings(monthlyLimit: value),
-                  ),
-                ),
-                _DetailRow(
-                  icon: Icons.priority_high,
-                  label: 'Warn At',
-                  value:
-                      '${calorieAlert.warningPercent}% (${calorieAlert.warningAt} kcal)',
-                  onEdit: () => _editCalorieGuardNumber(
-                    context,
-                    ref,
-                    title: 'Warning Percent',
-                    current: calorieAlert.warningPercent,
-                    suffix: '%',
-                    onSave: (value) => ref
-                        .read(monthlyCalorieAlertProvider.notifier)
-                        .updateSettings(warningPercent: value),
-                  ),
-                ),
-                _DetailRow(
-                  icon: Icons.schedule,
-                  label: 'Alert Time',
-                  value: calorieAlert.alertTimeLabel,
-                  onEdit: () =>
-                      _pickCalorieGuardTime(context, ref, calorieAlert),
-                ),
-                _DetailRow(
-                  icon: Icons.message_outlined,
-                  label: 'Message',
-                  value: _shortMessage(calorieAlert.message),
-                  onEdit: () => _editCalorieGuardMessage(
-                    context,
-                    ref,
-                    calorieAlert.message,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Appearance Card
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Icon(
-                  themeMode == ThemeMode.dark
-                      ? Icons.dark_mode_outlined
-                      : Icons.light_mode_outlined,
-                  color: cs.primary,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Dark Mode',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        themeMode == ThemeMode.dark
-                            ? 'Black dashboard enabled'
-                            : 'Bright dashboard enabled',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Switch(
-                  value: themeMode == ThemeMode.dark,
-                  onChanged: (value) =>
-                      ref.read(themeModeProvider.notifier).setDarkMode(value),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Advanced Projections Math View
-        Card(
-          clipBehavior: Clip.antiAlias,
-          child: Theme(
-            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-            child: ExpansionTile(
-              leading: Icon(Icons.calculate, color: cs.primary),
-              title: Text(
-                'Weight Loss Projection',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              subtitle: Text(
-                deficit == 0
-                    ? 'Maintaining current weight'
-                    : (deficit > 0
-                          ? 'Losing ~${((deficit * 30) / 7700).toStringAsFixed(1)} kg / month'
-                          : 'Gaining ~${((deficit.abs() * 30) / 7700).toStringAsFixed(1)} kg / month'),
-                style: TextStyle(
-                  color: cs.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              childrenPadding: const EdgeInsets.only(
-                left: 20,
-                right: 20,
-                bottom: 20,
-              ),
-              expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Divider(),
-                const SizedBox(height: 12),
-                _MathRow(
-                  label: 'Maintenance (TDEE)',
-                  value: '${profile.tdee} kcal/day',
-                ),
-                _MathRow(
-                  label: 'Daily Target',
-                  value: '$dailyFromWeekly kcal/day',
-                ),
-                _MathRow(
-                  label: deficit >= 0 ? 'Daily Deficit' : 'Daily Surplus',
-                  value: deficit >= 0
-                      ? '-${deficit.abs()} kcal/day'
-                      : '+${deficit.abs()} kcal/day',
-                  isHighlight: true,
-                  color: deficit >= 0 ? cs.primary : const Color(0xFFE85D04),
-                ),
-                const SizedBox(height: 12),
-                _MathRow(
-                  label: 'Monthly Impact',
-                  value: '${deficit.abs() * 30} kcal',
-                ),
-                _MathRow(
-                  label: 'Equivalent Weight',
-                  value:
-                      '${((deficit.abs() * 30) / 7700).toStringAsFixed(2)} kg',
-                  isHighlight: true,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '*Based on 7700 kcal = 1kg. Actual results may vary.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.onSurface.withOpacity(0.5),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Account Card
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Account',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isLoggedIn
-                        ? FitColors.successGreen.withAlpha(18)
-                        : cs.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isLoggedIn
-                          ? FitColors.successGreen.withAlpha(80)
-                          : cs.outlineVariant,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        isLoggedIn
-                            ? Icons.verified_user_outlined
-                            : Icons.person_off_outlined,
-                        color: isLoggedIn
-                            ? FitColors.successGreen
-                            : cs.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              isLoggedIn ? 'Signed in' : 'Guest profile',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            Text(
-                              isLoggedIn
-                                  ? accountEmail
-                                  : 'Sign in to sync progress online',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: cs.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _DetailRow(
-                  icon: Icons.cloud,
-                  label: 'Sync Status',
-                  value: isLoggedIn ? 'Online' : 'Not signed in',
-                  valueColor: isLoggedIn
-                      ? FitColors.successGreen
-                      : cs.onSurfaceVariant,
-                ),
-                if (!isLoggedIn) ...[
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.tonalIcon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const AuthScreen()),
-                      ),
-                      icon: const Icon(Icons.cloud_upload_outlined),
-                      label: const Text('Sign In / Create Account'),
-                    ),
-                  ),
-                ],
-                if (isLoggedIn) ...[
-                  _DetailRow(
-                    icon: Icons.email_outlined,
-                    label: 'Email',
-                    value: accountEmail.isEmpty ? 'Connected' : accountEmail,
-                    valueColor: cs.onSurface,
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        FilledButton.tonalIcon(
-          onPressed: () {
-            showDialog(
-              context: context,
-              builder: (dCtx) => AlertDialog(
-                title: const Text('Redo Full Setup?'),
-                content: const Text(
-                  'This will take you to the initial setup screen and overwrite your existing goals. Are you completely sure?',
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(dCtx),
-                    child: const Text('Cancel'),
-                  ),
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.error,
-                    ),
-                    onPressed: () {
-                      Navigator.pop(dCtx); // Close dialog
-
-                      bool isCancelled = false;
-                      final scaffoldMessenger = ScaffoldMessenger.of(context);
-
-                      scaffoldMessenger.clearSnackBars();
-                      scaffoldMessenger.showSnackBar(
-                        SnackBar(
-                          content: const Text(
-                            'Navigating to setup in 5 seconds...',
-                          ),
-                          duration: const Duration(seconds: 5),
-                          behavior: SnackBarBehavior.floating,
-                          action: SnackBarAction(
-                            label: 'CANCEL (5s)',
-                            textColor: Colors.yellow,
-                            onPressed: () {
-                              isCancelled = true;
-                              scaffoldMessenger.showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Action cancelled. Setup aborted.',
-                                  ),
-                                  duration: Duration(seconds: 2),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      );
-
-                      Future.delayed(const Duration(seconds: 5), () {
-                        if (!isCancelled && context.mounted) {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const OnboardingScreen(),
-                            ),
-                          );
-                        }
-                      });
-                    },
-                    icon: const Icon(Icons.warning_amber_rounded, size: 18),
-                    label: const Text('Proceed'),
-                  ),
-                ],
-              ),
-            );
-          },
-          icon: const Icon(Icons.refresh),
-          label: const Text('Redo Full Setup'),
-        ),
-        const SizedBox(height: 8),
-        if (SupabaseService.isLoggedIn)
-          OutlinedButton.icon(
-            onPressed: () async {
-              final nav = Navigator.of(context);
-              await SupabaseService.signOut();
-              if (context.mounted) {
-                // Pop everything and go back to root - auth gate will show login
-                nav.pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const AuthScreen()),
-                  (route) => false,
-                );
-              }
-            },
-            icon: Icon(Icons.logout, color: cs.error),
-            label: Text('Sign Out', style: TextStyle(color: cs.error)),
-          ),
-        const SizedBox(height: 32),
-        Center(
-          child: Text(
-            'Developed by Mayuresh',
-            style: TextStyle(
-              fontSize: 12,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-              fontWeight: FontWeight.w500,
-              letterSpacing: 1.2,
-            ),
-          ),
-        ),
-        const SizedBox(height: 24),
-      ],
+        ],
+      ),
     );
   }
 
-  TextStyle _scaleStyle(ColorScheme cs) =>
-      TextStyle(fontSize: 9, color: cs.onSurfaceVariant);
+  Future<void> _confirmRedoSetup(BuildContext context) async {
+    final shouldRedo = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Redo full setup?'),
+        content: const Text(
+          'This opens onboarding again and replaces your current goals. '
+          'Your logged history stays on this device.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
 
-  String _goalLabel(String goal) => switch (goal) {
-    'lose' => 'Lose Weight',
-    'gain' => 'Gain Weight',
-    'custom' => 'Custom Budget',
-    _ => 'Maintain Weight',
-  };
-
-  String _shortMessage(String value) {
-    if (value.length <= 24) return value;
-    return '${value.substring(0, 24)}...';
+    if (shouldRedo != true || !context.mounted) return;
+    context.push('/onboarding?redo=1');
   }
 
   void _editCalorieGuardNumber(
@@ -743,8 +552,8 @@ class _ProfileBody extends ConsumerWidget {
     required String suffix,
     required Future<void> Function(int value) onSave,
   }) {
-    final controller = TextEditingController(text: current.toString());
-    showDialog(
+    final controller = TextEditingController(text: '$current');
+    showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(title),
@@ -765,7 +574,7 @@ class _ProfileBody extends ConsumerWidget {
           ),
           FilledButton(
             onPressed: () async {
-              final value = int.tryParse(controller.text);
+              final value = int.tryParse(controller.text.trim());
               if (value == null || value <= 0) return;
               await onSave(value);
               if (ctx.mounted) Navigator.pop(ctx);
@@ -799,17 +608,17 @@ class _ProfileBody extends ConsumerWidget {
     String current,
   ) {
     final controller = TextEditingController(text: current);
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Notification Message'),
+        title: const Text('Notification message'),
         content: TextField(
           controller: controller,
           autofocus: true,
           maxLines: 4,
           decoration: const InputDecoration(
             labelText: 'Message',
-            hintText: "Your calories are going out of bound. Don't eat.",
+            hintText: 'A short reminder to stay within your budget.',
             border: OutlineInputBorder(),
           ),
         ),
@@ -832,96 +641,53 @@ class _ProfileBody extends ConsumerWidget {
     );
   }
 
-  void _editField(
-    BuildContext context,
-    WidgetRef ref,
-    String field,
-    String current,
-  ) {
-    final controller = TextEditingController(text: current);
-    String label;
-    String suffix;
-    switch (field) {
-      case 'weight':
-        label = 'Weight';
-        suffix = 'kg';
-      case 'height':
-        label = 'Height';
-        suffix = 'cm';
-      case 'weeklyCalories':
-        label = 'Weekly Calorie Budget';
-        suffix = 'kcal/week';
-      case 'monthlyCalories':
-        label = 'Monthly Calorie Budget';
-        suffix = 'kcal/mo';
-      case 'water':
-        label = 'Daily Water Goal';
-        suffix = 'ml';
-      default:
-        return;
-    }
-
-    showDialog(
+  void _showInfoDialog(
+    BuildContext context, {
+    required String title,
+    required String body,
+    String? url,
+  }) {
+    final messenger = ScaffoldMessenger.of(context);
+    showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Edit $label'),
-        content: TextField(
-          controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          autofocus: true,
-          decoration: InputDecoration(
-            labelText: label,
-            suffixText: suffix,
-            border: const OutlineInputBorder(),
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(body),
+              if (url != null) ...[
+                const SizedBox(height: FitGoSpacing.md),
+                SelectableText(
+                  url,
+                  style: Theme.of(dialogContext).textTheme.bodyMedium?.copyWith(
+                    color: dialogContext.tokens.emberDeep,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
+          if (url != null)
+            TextButton.icon(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: url));
+                if (!dialogContext.mounted) return;
+                Navigator.pop(dialogContext);
+                messenger.showSnackBar(
+                  const SnackBar(content: Text('Link copied')),
+                );
+              },
+              icon: const Icon(Icons.copy_rounded, size: 18),
+              label: const Text('Copy link'),
+            ),
           FilledButton(
-            onPressed: () {
-              final v = double.tryParse(controller.text);
-              if (v == null || v <= 0) return;
-              switch (field) {
-                case 'weight':
-                  ref.read(profileProvider.notifier).updateGoals();
-                  final p = ref.read(profileProvider);
-                  if (p != null) {
-                    p.weightKg = v;
-                    ref.read(profileProvider.notifier).saveProfile(p);
-                  }
-                case 'height':
-                  final p = ref.read(profileProvider);
-                  if (p != null) {
-                    p.heightCm = v;
-                    ref.read(profileProvider.notifier).saveProfile(p);
-                  }
-                case 'weeklyCalories':
-                  ref
-                      .read(profileProvider.notifier)
-                      .updateGoals(
-                        weeklyCalorieGoal: v.toInt(),
-                        calorieGoal: (v / 7).round(),
-                      );
-                case 'monthlyCalories':
-                  final daily = (v / 30).round();
-                  final weekly = daily * 7;
-                  ref
-                      .read(profileProvider.notifier)
-                      .updateGoals(
-                        weeklyCalorieGoal: weekly,
-                        calorieGoal: daily,
-                      );
-                case 'water':
-                  ref
-                      .read(profileProvider.notifier)
-                      .updateGoals(waterGoalMl: v.toInt());
-              }
-              Navigator.pop(ctx);
-            },
-            child: const Text('Save'),
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
           ),
         ],
       ),
@@ -929,58 +695,433 @@ class _ProfileBody extends ConsumerWidget {
   }
 }
 
-class _DetailRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final VoidCallback? onEdit;
-  final Color? valueColor;
+class _ProfileHeader extends ConsumerWidget {
+  const _ProfileHeader({required this.profile, required this.units});
 
-  const _DetailRow({
+  final UserProfile profile;
+  final UnitSystem units;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final tokens = context.tokens;
+    final scheme = theme.colorScheme;
+    final isLoggedIn = SupabaseService.isLoggedIn;
+    final email = SupabaseService.currentUser?.email ?? '';
+    final heightM = profile.heightCm / 100;
+    final bmi = heightM <= 0 ? 0.0 : profile.weightKg / (heightM * heightM);
+    final bmiLabel = bmi <= 0
+        ? ''
+        : bmi < 18.5
+        ? 'Underweight'
+        : bmi < 25
+        ? 'Healthy'
+        : bmi < 30
+        ? 'Overweight'
+        : 'Obese';
+    final healthyBmi = bmi >= 18.5 && bmi < 25;
+    final bmiColor = healthyBmi
+        ? scheme.onTertiaryContainer
+        : scheme.onErrorContainer;
+    final bmiBackground = healthyBmi
+        ? scheme.tertiaryContainer
+        : scheme.errorContainer;
+
+    return FitGoCard(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 26,
+            backgroundColor: tokens.ember.withValues(alpha: 0.14),
+            child: Icon(
+              profile.gender == 'male'
+                  ? Icons.male_rounded
+                  : Icons.female_rounded,
+              color: tokens.emberDeep,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: FitGoSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isLoggedIn
+                      ? (email.isEmpty ? 'Signed in' : email)
+                      : 'Guest profile',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: tokens.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${profile.age} yrs · '
+                  '${profile.gender[0].toUpperCase()}${profile.gender.substring(1)} · '
+                  '${units.formatWeight(profile.weightKg)}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: tokens.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: FitGoSpacing.xs),
+                Wrap(
+                  spacing: FitGoSpacing.xs,
+                  runSpacing: FitGoSpacing.xxs,
+                  children: [
+                    const SyncStatusPill(),
+                    if (bmiLabel.isNotEmpty)
+                      FitGoPill(
+                        label: 'BMI ${bmi.toStringAsFixed(1)} · $bmiLabel',
+                        icon: Icons.monitor_heart_outlined,
+                        color: bmiColor,
+                        background: bmiBackground,
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SegmentedSetting<T extends Object> extends StatelessWidget {
+  const _SegmentedSetting({
     required this.icon,
-    required this.label,
-    required this.value,
-    this.onEdit,
-    this.valueColor,
+    required this.title,
+    required this.subtitle,
+    required this.values,
+    required this.labels,
+    required this.selected,
+    required this.onChanged,
   });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final List<T> values;
+  final List<String> labels;
+  final T selected;
+  final ValueChanged<T> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    return Column(
+      children: [
+        FitGoListRow(
+          leadingIcon: icon,
+          title: title,
+          subtitle: subtitle,
+          showChevron: false,
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            FitGoSpacing.md,
+            0,
+            FitGoSpacing.md,
+            FitGoSpacing.md,
+          ),
+          child: FitGoSegmentedControl<T>(
+            values: values,
+            labels: labels,
+            selected: selected,
+            onChanged: onChanged,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CalorieGuardSummary extends StatelessWidget {
+  const _CalorieGuardSummary({required this.alert});
+
+  final MonthlyCalorieAlertState alert;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tokens = context.tokens;
+    final progress = alert.monthlyLimit > 0
+        ? (alert.monthTotal / alert.monthlyLimit).clamp(0.0, 1.0)
+        : 0.0;
+    final color = alert.isOverLimit
+        ? theme.colorScheme.error
+        : alert.isInWarningZone
+        ? tokens.emberDeep
+        : tokens.ember;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(
+        FitGoSpacing.md,
+        0,
+        FitGoSpacing.md,
+        FitGoSpacing.sm,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: cs.primary),
-          const SizedBox(width: 12),
-          Text(label, style: TextStyle(color: cs.onSurfaceVariant)),
-          const Spacer(),
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: valueColor ?? cs.onSurface,
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 8,
+              backgroundColor: tokens.surfaceMuted,
+              color: color,
             ),
           ),
-          if (onEdit != null) ...[
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: onEdit,
-              child: Icon(Icons.edit, size: 14, color: cs.onSurfaceVariant),
+          const SizedBox(height: FitGoSpacing.xs),
+          Text(
+            '${alert.monthTotal} / ${alert.monthlyLimit} kcal this month',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: alert.isOverLimit
+                  ? theme.colorScheme.error
+                  : tokens.textSecondary,
+              fontWeight: FontWeight.w600,
             ),
-          ],
+          ),
         ],
       ),
+    );
+  }
+}
+
+class _AccountBackupCard extends ConsumerStatefulWidget {
+  const _AccountBackupCard();
+
+  @override
+  ConsumerState<_AccountBackupCard> createState() => _AccountBackupCardState();
+}
+
+class _AccountBackupCardState extends ConsumerState<_AccountBackupCard> {
+  bool _syncing = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = ref.watch(syncStatusProvider);
+    final guestDataAvailable =
+        ref.watch(guestDataAvailableProvider).valueOrNull ?? false;
+    final isLoggedIn = SupabaseService.isLoggedIn;
+    final email = SupabaseService.currentUser?.email ?? '';
+    final lastSync = status.lastSyncedAt;
+    final theme = Theme.of(context);
+
+    return _SettingsGroup(
+      children: [
+        FitGoListRow(
+          leadingIcon: isLoggedIn
+              ? Icons.verified_user_outlined
+              : Icons.person_off_outlined,
+          title: isLoggedIn
+              ? (email.isEmpty ? 'Signed in' : email)
+              : 'Guest profile',
+          subtitle: isLoggedIn
+              ? 'Cloud backup enabled'
+              : 'Local only · Sign in to back up',
+          showChevron: false,
+        ),
+        FitGoListRow(
+          leadingIcon: Icons.cloud_done_outlined,
+          title: 'Last sync',
+          subtitle: 'Pull-first refresh from your backup',
+          trailingText: lastSync == null ? 'Never' : relativeSyncTime(lastSync),
+          showChevron: false,
+        ),
+        FitGoListRow(
+          leadingIcon: Icons.cloud_upload_outlined,
+          title: 'Pending changes',
+          subtitle: status.cloudEnabled
+              ? 'Saved here, waiting to upload'
+              : 'Guest data never leaves this device',
+          trailingText: status.cloudEnabled
+              ? '${status.pendingChanges}'
+              : 'Local only',
+          showChevron: false,
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            FitGoSpacing.md,
+            FitGoSpacing.sm,
+            FitGoSpacing.md,
+            FitGoSpacing.md,
+          ),
+          child: FitGoPrimaryButton(
+            label: isLoggedIn ? 'Retry sync' : 'Sign in or create account',
+            icon: isLoggedIn ? Icons.sync_rounded : Icons.cloud_upload_outlined,
+            loading: _syncing,
+            tonal: true,
+            onPressed: isLoggedIn ? _syncNow : () => context.push('/auth'),
+          ),
+        ),
+        if (isLoggedIn && guestDataAvailable)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              FitGoSpacing.md,
+              0,
+              FitGoSpacing.md,
+              FitGoSpacing.md,
+            ),
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _importGuestData,
+                icon: const Icon(Icons.move_to_inbox_outlined),
+                label: const Text('Import guest data'),
+              ),
+            ),
+          ),
+        if (isLoggedIn)
+          FitGoListRow(
+            leadingIcon: Icons.logout_rounded,
+            title: 'Sign out',
+            subtitle: 'Keeps this device’s logs in guest mode',
+            destructive: true,
+            onTap: _confirmSignOut,
+          ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            FitGoSpacing.md,
+            0,
+            FitGoSpacing.md,
+            FitGoSpacing.md,
+          ),
+          child: Text(
+            'Changes save on this device first. A poor connection never blocks '
+            'logging and never loses a pending edit.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: context.tokens.textSecondary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _syncNow() async {
+    if (_syncing) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _syncing = true);
+
+    final storage = ref.read(localStorageProvider);
+    await storage.syncWithCloud();
+    refreshLocalDataProviders(ref);
+    if (!mounted) return;
+
+    setState(() => _syncing = false);
+    final status = ref.read(syncStatusProvider);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          status.hasPendingChanges
+              ? 'Still offline. ${status.pendingChanges} change'
+                    '${status.pendingChanges == 1 ? '' : 's'} saved on this '
+                    'device.'
+              : 'Cloud backup is up to date.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _importGuestData() async {
+    final shouldImport = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Import guest data?'),
+        content: const Text(
+          'Copy the progress saved on this device in guest mode into this '
+          'account? Existing account records are kept.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Import'),
+          ),
+        ],
+      ),
+    );
+    if (shouldImport != true) return;
+    if (!mounted) return;
+
+    final storage = ref.read(localStorageProvider);
+    final imported = await storage.importGuestData();
+    await storage.syncWithCloud();
+    if (!mounted) return;
+
+    ref.invalidate(guestDataAvailableProvider);
+    refreshLocalDataProviders(ref);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          imported == 0
+              ? 'Nothing new to import'
+              : '$imported local record${imported == 1 ? '' : 's'} imported',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmSignOut() async {
+    final shouldSignOut = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Sign out?'),
+        content: const Text(
+          'Your logs stay on this device and the app switches to guest mode. '
+          'Unsynced changes stay queued for the next time you sign in.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Sign out'),
+          ),
+        ],
+      ),
+    );
+    if (shouldSignOut != true) return;
+
+    await SupabaseService.signOut();
+    if (!mounted) return;
+    context.go('/profile');
+  }
+}
+
+class _SettingsGroup extends StatelessWidget {
+  const _SettingsGroup({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final content = <Widget>[];
+    for (var i = 0; i < children.length; i++) {
+      if (i > 0) {
+        content.add(Divider(height: 1, thickness: 1, color: tokens.border));
+      }
+      content.add(children[i]);
+    }
+    return FitGoCard(
+      padding: EdgeInsets.zero,
+      child: Column(children: content),
     );
   }
 }
 
 class _MathRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool isHighlight;
-  final Color? color;
-
   const _MathRow({
     required this.label,
     required this.value,
@@ -988,31 +1129,35 @@ class _MathRow extends StatelessWidget {
     this.color,
   });
 
+  final String label;
+  final String value;
+  final bool isHighlight;
+  final Color? color;
+
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final tokens = context.tokens;
+    final theme = Theme.of(context);
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Expanded(
             child: Text(
               label,
-              style: TextStyle(
-                color: isHighlight
-                    ? (color ?? cs.onSurface)
-                    : cs.onSurfaceVariant,
-                fontWeight: isHighlight ? FontWeight.bold : FontWeight.normal,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: isHighlight ? tokens.textPrimary : tokens.textSecondary,
+                fontWeight: isHighlight ? FontWeight.w700 : FontWeight.w400,
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: FitGoSpacing.sm),
           Text(
             value,
-            style: TextStyle(
-              fontWeight: isHighlight ? FontWeight.bold : FontWeight.w600,
-              color: color ?? cs.onSurface,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: color ?? tokens.textPrimary,
+              fontWeight: isHighlight ? FontWeight.w700 : FontWeight.w600,
             ),
           ),
         ],

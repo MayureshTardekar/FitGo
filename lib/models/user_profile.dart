@@ -31,6 +31,9 @@ class UserProfile extends HiveObject {
   @HiveField(8, defaultValue: '')
   String dobString; // 'yyyy-MM-dd' date of birth
 
+  @HiveField(9, defaultValue: 'light')
+  String activityLevel; // 'sedentary', 'light', 'moderate', 'active'
+
   UserProfile({
     required this.weightKg,
     required this.heightCm,
@@ -41,11 +44,26 @@ class UserProfile extends HiveObject {
     int? weeklyCalorieGoal,
     this.weightGoal = 'maintain',
     this.dobString = '',
+    this.activityLevel = 'light',
   }) : calorieGoal =
-           calorieGoal ?? _calcCalorieGoal(weightKg, heightCm, age, gender),
+           calorieGoal ??
+           _calcCalorieGoal(
+             weightKg,
+             heightCm,
+             age,
+             gender,
+             activityLevel: activityLevel,
+           ),
        waterGoalMl = waterGoalMl ?? _calcWaterGoal(weightKg),
        weeklyCalorieGoal = (weeklyCalorieGoal == null || weeklyCalorieGoal == 0)
-           ? _calcWeeklyCalorieGoal(weightKg, heightCm, age, gender, weightGoal)
+           ? _calcWeeklyCalorieGoal(
+               weightKg,
+               heightCm,
+               age,
+               gender,
+               weightGoal,
+               activityLevel: activityLevel,
+             )
            : weeklyCalorieGoal;
 
   /// Age from DOB
@@ -63,20 +81,32 @@ class UserProfile extends HiveObject {
   int get dailyQuota =>
       weeklyCalorieGoal > 0 ? (weeklyCalorieGoal / 7).round() : calorieGoal;
 
-  /// Mifflin-St Jeor BMR → TDEE
+  /// Mifflin-St Jeor BMR × activity multiplier → TDEE.
+  static double activityMultiplier(String level) {
+    return switch (level) {
+      'sedentary' => 1.2,
+      'moderate' => 1.55,
+      'active' => 1.725,
+      _ => 1.4,
+    };
+  }
+
+  static const activityLevels = ['sedentary', 'light', 'moderate', 'active'];
+
   static int _calcCalorieGoal(
     double weight,
     double height,
     int age,
-    String gender,
-  ) {
+    String gender, {
+    String activityLevel = 'light',
+  }) {
     double bmr;
     if (gender == 'male') {
       bmr = 10 * weight + 6.25 * height - 5 * age + 5;
     } else {
       bmr = 10 * weight + 6.25 * height - 5 * age - 161;
     }
-    return (bmr * 1.4).round();
+    return (bmr * activityMultiplier(activityLevel)).round();
   }
 
   /// ~35ml per kg body weight
@@ -90,9 +120,16 @@ class UserProfile extends HiveObject {
     double height,
     int age,
     String gender,
-    String goal,
-  ) {
-    final dailyTdee = _calcCalorieGoal(weight, height, age, gender);
+    String goal, {
+    String activityLevel = 'light',
+  }) {
+    final dailyTdee = _calcCalorieGoal(
+      weight,
+      height,
+      age,
+      gender,
+      activityLevel: activityLevel,
+    );
     switch (goal) {
       case 'lose':
         return (dailyTdee - 500) * 7;
@@ -103,12 +140,38 @@ class UserProfile extends HiveObject {
     }
   }
 
-  int get tdee => _calcCalorieGoal(weightKg, heightCm, age, gender);
+  int get tdee => _calcCalorieGoal(
+    weightKg,
+    heightCm,
+    age,
+    gender,
+    activityLevel: activityLevel,
+  );
   int get suggestedCalorieGoal => tdee;
   int get suggestedWaterGoal => _calcWaterGoal(weightKg);
-  int get suggestedWeeklyGoal =>
-      _calcWeeklyCalorieGoal(weightKg, heightCm, age, gender, weightGoal);
+  int get suggestedWeeklyGoal => _calcWeeklyCalorieGoal(
+    weightKg,
+    heightCm,
+    age,
+    gender,
+    weightGoal,
+    activityLevel: activityLevel,
+  );
 
   /// Surplus or deficit per day vs TDEE
   int get dailySurplusDeficit => dailyQuota - tdee;
+
+  /// Detached copy, safe to store in a different Hive box or account cache.
+  UserProfile copy() => UserProfile(
+    weightKg: weightKg,
+    heightCm: heightCm,
+    age: age,
+    gender: gender,
+    calorieGoal: calorieGoal,
+    waterGoalMl: waterGoalMl,
+    weeklyCalorieGoal: weeklyCalorieGoal,
+    weightGoal: weightGoal,
+    dobString: dobString,
+    activityLevel: activityLevel,
+  );
 }

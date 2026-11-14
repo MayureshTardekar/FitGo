@@ -1,0 +1,19 @@
+{
+  "@@locale": "en",
+  "appTitle": "FitGo",
+  "@appTitle": {
+    "description": "Application name"
+  },
+  "today": "Today",
+  "trends": "Trends",
+  "profile": "Profile",
+  "settings": "Settings",
+  "save": "Save",
+  "cancel": "Cancel",
+  "delete": "Delete",
+  "undo": "Undo",
+  "retry": "Try again",
+  "offlineSavedLocally": "Offline · saved locally",
+  "syncing": "Syncing…",
+  "synced": "Synced"
+}

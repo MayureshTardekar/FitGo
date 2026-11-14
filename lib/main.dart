@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app.dart';
 import 'providers/storage_provider.dart';
 import 'services/local_storage.dart';
+import 'services/notification_service.dart';
 import 'services/supabase_service.dart';
 
 void main() async {
@@ -12,9 +13,12 @@ void main() async {
   // Init Supabase
   await SupabaseService.init();
 
-  // Init Hive
+  // Init Hive in the namespace for the restored Supabase session (if any).
   final storage = LocalStorage();
-  await storage.init();
+  await storage.init(userId: SupabaseService.userId);
+
+  // Init timezone data and local notifications (Android + iOS).
+  await NotificationService.init();
 
   runApp(
     ProviderScope(

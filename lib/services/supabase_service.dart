@@ -1,3 +1,8 @@
+import 'dart:convert';
+import 'dart:math';
+
+import 'package:crypto/crypto.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/supabase_config.dart';
@@ -6,6 +11,8 @@ import '../models/user_profile.dart';
 import '../models/weight_entry.dart';
 
 class SupabaseService {
+  static const oauthRedirectUrl = 'com.fitgo.fitgo://login-callback';
+
   static SupabaseClient get client => Supabase.instance.client;
 
   static Future<void> init() async {
@@ -17,7 +24,16 @@ class SupabaseService {
 
   // ─── Auth ──────────────────────────────────────────────────────────────
 
-  static User? get currentUser => client.auth.currentUser;
+  static User? get currentUser {
+    try {
+      return client.auth.currentUser;
+    } catch (_) {
+      // Supabase is not initialized in unit/widget tests and during the very
+      // first startup frame. Treat both as signed out.
+      return null;
+    }
+  }
+
   static bool get isLoggedIn => currentUser != null;
   static String? get userId => currentUser?.id;
 
@@ -44,8 +60,46 @@ class SupabaseService {
   static Future<void> signInWithGoogle() async {
     await client.auth.signInWithOAuth(
       OAuthProvider.google,
-      redirectTo: 'com.fitgo.fitgo://login-callback',
+      redirectTo: oauthRedirectUrl,
     );
+  }
+
+  /// Whether the current device can show the native Sign in with Apple flow.
+  static Future<bool> isAppleSignInAvailable() => SignInWithApple.isAvailable();
+
+  /// Native Sign in with Apple using a Supabase ID token exchange.
+  static Future<AuthResponse> signInWithApple() async {
+    final rawNonce = _generateNonce();
+    final nonce = sha256.convert(utf8.encode(rawNonce)).toString();
+
+    final credential = await SignInWithApple.getAppleIDCredential(
+      scopes: [
+        AppleIDAuthorizationScopes.email,
+        AppleIDAuthorizationScopes.fullName,
+      ],
+      nonce: nonce,
+    );
+
+    final idToken = credential.identityToken;
+    if (idToken == null) {
+      throw AuthException('Apple did not return an identity token.');
+    }
+
+    return client.auth.signInWithIdToken(
+      provider: OAuthProvider.apple,
+      idToken: idToken,
+      nonce: rawNonce,
+    );
+  }
+
+  static String _generateNonce([int length = 32]) {
+    const chars =
+        '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    final random = Random.secure();
+    return List.generate(
+      length,
+      (_) => chars[random.nextInt(chars.length)],
+    ).join();
   }
 
   static Future<void> signOut() async {
@@ -298,35 +352,9 @@ class SupabaseService {
     };
   }
 
-  // ─── Bulk Sync (on login / app start) ──────────────────────────────────
-
-  /// Push all local Hive data to Supabase
-  static Future<void> syncToCloud({
-    required UserProfile? profile,
-    required List<DailyMetrics> metrics,
-    required List<WeightEntry> weights,
-    Map<String, dynamic> settings = const {},
-  }) async {
-    if (!isLoggedIn) return;
-
-    try {
-      if (profile != null) await upsertProfile(profile);
-
-      for (final m in metrics) {
-        await upsertDailyMetrics(m);
-      }
-
-      for (final w in weights) {
-        await upsertWeight(w);
-      }
-
-      if (settings.isNotEmpty) {
-        await upsertAppSettings(settings);
-      }
-    } catch (_) {
-      // Silently fail - offline-first, will retry next time
-    }
-  }
+  // Bulk uploads intentionally do not live here. [LocalStorage] owns a
+  // per-account outbox so one account's cached data can never be pushed under
+  // another account.
 
   static int _intValue(Object? value, {int fallback = 0}) {
     if (value is int) return value;

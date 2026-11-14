@@ -1,196 +1,302 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show AuthState;
+
+import 'core/day_boundary.dart';
 import 'core/theme.dart';
-import 'providers/activity_provider.dart';
-import 'providers/calorie_provider.dart';
-import 'providers/dashboard_focus_provider.dart';
-import 'providers/monthly_calorie_alert_provider.dart';
-import 'providers/profile_provider.dart';
+import 'l10n/app_localizations.dart';
+import 'providers/local_data_refresh.dart';
 import 'providers/storage_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/timer_provider.dart';
 import 'providers/water_provider.dart';
-import 'providers/weekly_nutrition_plan_provider.dart';
-import 'providers/weekly_provider.dart';
-import 'providers/weight_provider.dart';
-import 'screens/analytics_screen.dart';
-import 'screens/auth_screen.dart';
-import 'screens/home_screen.dart';
-import 'screens/onboarding_screen.dart';
+import 'routing/app_router.dart';
+import 'services/local_storage.dart';
+import 'services/notification_service.dart';
 import 'services/supabase_service.dart';
+import 'ui/adaptive/fitgo_scroll_behavior.dart';
 
-class FitGoApp extends ConsumerWidget {
+class FitGoApp extends ConsumerStatefulWidget {
   const FitGoApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeModeProvider);
-
-    return MaterialApp(
-      title: 'FitGo',
-      debugShowCheckedModeBanner: false,
-      themeMode: themeMode,
-      darkTheme: FitGoTheme.darkTheme,
-      theme: FitGoTheme.lightTheme,
-      home: const _AuthGate(),
-    );
-  }
+  ConsumerState<FitGoApp> createState() => _FitGoAppState();
 }
 
-/// Listens to Supabase auth state changes
-class _AuthGate extends StatefulWidget {
-  const _AuthGate();
-
-  @override
-  State<_AuthGate> createState() => _AuthGateState();
-}
-
-class _AuthGateState extends State<_AuthGate> {
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder(
-      stream: SupabaseService.authStateChanges,
-      builder: (context, snapshot) {
-        // If logged in OR has local profile (offline mode), go to app
-        final isLoggedIn = SupabaseService.isLoggedIn;
-        if (isLoggedIn) {
-          // Sync local data to cloud in background
-          _syncInBackground();
-          return const _ProfileGate();
-        }
-
-        // Require cloud login so progress can sync across devices.
-        return const _OfflineOrAuthGate();
-      },
-    );
-  }
-
-  void _syncInBackground() {
-    // Profile sync happens in _ProfileGate.initState
-  }
-}
-
-/// Shows auth screen OR lets user through if they have local profile
-class _OfflineOrAuthGate extends ConsumerWidget {
-  const _OfflineOrAuthGate();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return const AuthScreen();
-  }
-}
-
-/// Routes to onboarding if no profile exists, otherwise to main shell
-class _ProfileGate extends ConsumerStatefulWidget {
-  const _ProfileGate();
-
-  @override
-  ConsumerState<_ProfileGate> createState() => _ProfileGateState();
-}
-
-class _ProfileGateState extends ConsumerState<_ProfileGate> {
-  bool _synced = false;
+class _FitGoAppState extends ConsumerState<FitGoApp>
+    with WidgetsBindingObserver {
+  StreamSubscription<String>? _notificationSubscription;
+  StreamSubscription<NotificationActionEvent>? _actionSubscription;
+  StreamSubscription<AuthState>? _authSubscription;
+  Future<void> _accountQueue = Future<void>.value();
+  final Set<String> _guestImportPrompted = {};
+  bool _syncing = false;
+  String? _syncedUserId;
+  DateTime? _lastResumeSync;
+  Timer? _midnightTimer;
+  String _dayKey = localDateKey(DateTime.now());
 
   @override
   void initState() {
     super.initState();
-    _tryFetchCloudProfile();
+    WidgetsBinding.instance.addObserver(this);
+    _scheduleMidnightRefresh();
+
+    _authSubscription = SupabaseService.authStateChanges.listen((authState) {
+      final userId = authState.session?.user.id;
+      if (userId == null) {
+        unawaited(_handleSignedOut());
+        return;
+      }
+      unawaited(_syncCloud(userId));
+    });
+
+    _notificationSubscription = NotificationService.onNotificationTap.listen(
+      _handleNotificationPayload,
+    );
+    _actionSubscription = NotificationService.onNotificationAction.listen(
+      _handleNotificationAction,
+    );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final userId = SupabaseService.currentUser?.id;
+      if (userId != null) {
+        unawaited(_syncCloud(userId));
+      }
+
+      final pendingAction = NotificationService.consumePendingLaunchAction();
+      if (pendingAction != null) {
+        _handleNotificationAction(pendingAction);
+      } else {
+        final pending = NotificationService.consumePendingLaunchPayload();
+        if (pending != null) {
+          _handleNotificationPayload(pending);
+        }
+      }
+    });
   }
 
-  Future<void> _tryFetchCloudProfile() async {
-    if (_synced) return;
-    _synced = true;
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _midnightTimer?.cancel();
+    _notificationSubscription?.cancel();
+    _actionSubscription?.cancel();
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+
+    _handleDayRollover();
+    _scheduleMidnightRefresh();
+
+    final userId = SupabaseService.currentUser?.id;
+    if (userId == null) return;
+
+    final now = DateTime.now();
+    if (_lastResumeSync != null &&
+        now.difference(_lastResumeSync!) < const Duration(minutes: 2)) {
+      return;
+    }
+    _lastResumeSync = now;
+    unawaited(_syncCloud(userId, force: true));
+  }
+
+  void _scheduleMidnightRefresh() {
+    _midnightTimer?.cancel();
+    final now = DateTime.now();
+    var delay = nextLocalMidnight(now).difference(now);
+    if (delay.isNegative) delay = const Duration(seconds: 1);
+    _midnightTimer = Timer(delay + const Duration(seconds: 1), () {
+      _handleDayRollover();
+      _scheduleMidnightRefresh();
+    });
+  }
+
+  /// Refreshes daily providers when the local civil day changes while the app
+  /// is open or after it returns from the background.
+  void _handleDayRollover() {
+    final currentDay = localDateKey(DateTime.now());
+    if (currentDay == _dayKey) return;
+    _dayKey = currentDay;
+    if (!mounted) return;
+    refreshLocalDataProviders(ref);
+  }
+
+  /// Routes notification payloads such as `fitgo://fasting` and
+  /// `fitgo://profile?section=notifications`.
+  void _handleNotificationPayload(String payload) {
+    final target = notificationTarget(payload);
+    if (target.isEmpty) return;
+
+    switch (target) {
+      case 'fasting':
+      case 'fast':
+      case 'food':
+      case 'nutrition':
+        ref.read(routerProvider).go('/');
+        return;
+      case 'trends':
+        ref.read(routerProvider).go('/trends');
+        return;
+      case 'profile':
+      default:
+        ref.read(routerProvider).go('/profile');
+        return;
+    }
+  }
+
+  void _handleNotificationAction(NotificationActionEvent event) {
+    switch (event.action) {
+      case NotificationAction.addWater:
+        ref.read(waterProvider.notifier).addWater(250);
+        _showNotificationMessage('250 ml added');
+        break;
+      case NotificationAction.endFast:
+        ref.read(fastingProvider.notifier).stopFasting();
+        _showNotificationMessage('Fast ended');
+        break;
+    }
+    ref.read(routerProvider).go('/');
+  }
+
+  void _showNotificationMessage(String message) {
+    final context = rootNavigatorKey.currentContext;
+    if (context == null) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  /// Serializes account switches so a sign-out cannot change namespaces while
+  /// a sign-in sync is still reading the previous account's boxes.
+  Future<void> _enqueueAccountTask(Future<void> Function() task) {
+    _accountQueue = _accountQueue.then((_) async {
+      try {
+        await task();
+      } catch (_) {
+        // A failed switch falls back to the next task; local data is untouched.
+      }
+    });
+    return _accountQueue;
+  }
+
+  Future<void> _handleSignedOut() {
+    return _enqueueAccountTask(() async {
+      _syncedUserId = null;
+      final storage = ref.read(localStorageProvider);
+      await storage.switchToAccount(null);
+      if (!mounted) return;
+      refreshLocalDataProviders(ref);
+    });
+  }
+
+  /// Opens the signed-in user's isolated cache, offers guest import once, and
+  /// runs a pull-first sync. Runs once per Supabase user unless forced.
+  Future<void> _syncCloud(String userId, {bool force = false}) {
+    return _enqueueAccountTask(() => _performCloudSync(userId, force: force));
+  }
+
+  Future<void> _performCloudSync(String userId, {required bool force}) async {
+    if (_syncing || (!force && _syncedUserId == userId)) return;
+    _syncing = true;
+    _syncedUserId = userId;
 
     try {
       final storage = ref.read(localStorageProvider);
-      final localProfile = ref.read(profileProvider);
-      final cloudProfile = await SupabaseService.fetchProfile();
-      final cloudMetrics = await SupabaseService.fetchAllMetrics();
-      final cloudWeights = await SupabaseService.fetchAllWeights();
-      final cloudSettings = await SupabaseService.fetchAppSettings();
+      await storage.switchToAccount(userId);
+      if (!mounted) return;
+      refreshLocalDataProviders(ref);
 
-      if (localProfile == null && cloudProfile != null) {
-        await storage.saveProfile(cloudProfile);
+      if (!storage.hasData && !_guestImportPrompted.contains(userId)) {
+        _guestImportPrompted.add(userId);
+        if (await storage.guestHasImportableData()) {
+          await _offerGuestImport(storage);
+          if (!mounted) return;
+          refreshLocalDataProviders(ref);
+        }
       }
 
-      await storage.importCloudData(
-        metrics: cloudMetrics,
-        weights: cloudWeights,
-        settings: cloudSettings,
-      );
-
-      final profileForSync = localProfile ?? cloudProfile;
-      await SupabaseService.syncToCloud(
-        profile: profileForSync,
-        metrics: storage.getAllMetrics(),
-        weights: storage.getAllWeights(),
-        settings: storage.getAllSettings(),
-      );
-
-      _refreshLocalProviders();
+      await storage.syncWithCloud();
+      if (!mounted) return;
+      refreshLocalDataProviders(ref);
     } catch (_) {
-      // Offline - no problem, local data works
+      // Offline is fine: local data remains the source of truth.
+      _syncedUserId = null;
+    } finally {
+      _syncing = false;
     }
   }
 
-  void _refreshLocalProviders() {
-    if (!mounted) return;
-    ref.invalidate(profileProvider);
-    ref.invalidate(nutritionProvider);
-    ref.invalidate(waterProvider);
-    ref.invalidate(fastingProvider);
-    ref.invalidate(activityProvider);
-    ref.invalidate(weightProvider);
-    ref.invalidate(weeklyProvider);
-    ref.invalidate(weeklyNutritionPlanProvider);
-    ref.invalidate(monthlyCalorieAlertProvider);
-    ref.invalidate(dashboardFocusModeProvider);
-    ref.invalidate(themeModeProvider);
-  }
+  Future<void> _offerGuestImport(LocalStorage storage) async {
+    final context = rootNavigatorKey.currentContext;
+    if (context == null) return;
 
-  @override
-  Widget build(BuildContext context) {
-    final profile = ref.watch(profileProvider);
-    if (profile == null) {
-      return const OnboardingScreen();
-    }
-    return const _MainShell();
-  }
-}
-
-/// Bottom navigation shell with Dashboard and Analytics tabs
-class _MainShell extends StatefulWidget {
-  const _MainShell();
-
-  @override
-  State<_MainShell> createState() => _MainShellState();
-}
-
-class _MainShellState extends State<_MainShell> {
-  int _currentIndex = 0;
-
-  static const _screens = [HomeScreen(), AnalyticsScreen()];
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: _screens[_currentIndex],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (i) => setState(() => _currentIndex = i),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Dashboard',
+    final shouldImport = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Import guest data?'),
+        content: const Text(
+          'FitGo found progress saved on this device from guest mode. '
+          'Import it into your account? Records already in this account are kept.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Not now'),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.analytics_outlined),
-            selectedIcon: Icon(Icons.analytics),
-            label: 'Analytics',
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Import'),
           ),
         ],
       ),
+    );
+    if (shouldImport != true) return;
+
+    final imported = await storage.importGuestData();
+    if (!mounted) return;
+    ref.invalidate(guestDataAvailableProvider);
+
+    final messengerContext = rootNavigatorKey.currentContext;
+    if (messengerContext == null || !messengerContext.mounted) return;
+    ScaffoldMessenger.of(messengerContext).showSnackBar(
+      SnackBar(
+        content: Text(
+          imported == 0
+              ? 'Nothing new to import'
+              : '$imported local record${imported == 1 ? '' : 's'} imported',
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeMode = ref.watch(themeModeProvider);
+    final router = ref.watch(routerProvider);
+
+    return MaterialApp.router(
+      onGenerateTitle: (context) =>
+          AppLocalizations.of(context)?.appTitle ?? 'FitGo',
+      debugShowCheckedModeBanner: false,
+      themeMode: themeMode,
+      darkTheme: FitGoTheme.darkTheme,
+      theme: FitGoTheme.lightTheme,
+      themeAnimationDuration: const Duration(milliseconds: 250),
+      scrollBehavior: const FitGoScrollBehavior(),
+      localizationsDelegates: const [
+        ...GlobalMaterialLocalizations.delegates,
+        AppLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
+      routerConfig: router,
     );
   }
 }

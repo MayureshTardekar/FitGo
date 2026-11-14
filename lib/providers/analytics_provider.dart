@@ -24,9 +24,21 @@ class AnalyticsState {
 
 class AnalyticsTimeframeNotifier extends Notifier<AnalyticsState> {
   @override
-  AnalyticsState build() => AnalyticsState(timeframe: Timeframe.thisWeek, referenceDate: DateTime.now());
+  AnalyticsState build() => AnalyticsState(
+    timeframe: Timeframe.thisWeek,
+    referenceDate: DateTime.now(),
+  );
 
-  void updateTimeframe(Timeframe tf) => state = state.copyWith(timeframe: tf, referenceDate: DateTime.now());
+  void updateTimeframe(Timeframe tf) =>
+      state = state.copyWith(timeframe: tf, referenceDate: DateTime.now());
+
+  /// Drills from a year total into that month.
+  void showMonth(DateTime month) {
+    state = AnalyticsState(
+      timeframe: Timeframe.thisMonth,
+      referenceDate: DateTime(month.year, month.month, 1),
+    );
+  }
 
   void previous() {
     state = state.copyWith(referenceDate: _shift(state.referenceDate, -1));
@@ -37,13 +49,13 @@ class AnalyticsTimeframeNotifier extends Notifier<AnalyticsState> {
   }
 
   DateTime _shift(DateTime current, int direction) {
-     if (state.timeframe == Timeframe.thisWeek) {
-        return current.add(Duration(days: 7 * direction));
-     } else if (state.timeframe == Timeframe.thisMonth) {
-        return DateTime(current.year, current.month + direction, 1);
-     } else {
-        return DateTime(current.year + direction, 1, 1);
-     }
+    if (state.timeframe == Timeframe.thisWeek) {
+      return current.add(Duration(days: 7 * direction));
+    } else if (state.timeframe == Timeframe.thisMonth) {
+      return DateTime(current.year, current.month + direction, 1);
+    } else {
+      return DateTime(current.year + direction, 1, 1);
+    }
   }
 }
 
@@ -114,11 +126,48 @@ final dashboardAnalyticsProvider =
     );
 
 class DashboardAnalyticsNotifier extends Notifier<DashboardAnalytics> {
+  final Map<String, DashboardAnalytics> _cache = {};
+  String? _cacheDataKey;
+
   @override
   DashboardAnalytics build() {
-    ref.watch(calorieProvider);
+    final nutrition = ref.watch(
+      nutritionProvider.select(
+        (state) =>
+            (calories: state.totalCalories, entries: state.entries.length),
+      ),
+    );
     final timeframe = ref.watch(analyticsTimeframeProvider);
-    return _calculate(timeframe);
+    final profile = ref.watch(profileProvider);
+    final storage = ref.read(localStorageProvider);
+
+    final dataKey = [
+      storage.dataRevision,
+      nutrition.calories,
+      nutrition.entries,
+      profile?.dailyQuota,
+      profile?.waterGoalMl,
+    ].join(':');
+    if (_cacheDataKey != dataKey) {
+      _cache.clear();
+      _cacheDataKey = dataKey;
+    }
+
+    final dayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final key = [
+      timeframe.timeframe.name,
+      DateFormat('yyyy-MM-dd').format(timeframe.referenceDate),
+      dayKey,
+      dataKey,
+    ].join('|');
+
+    final cached = _cache[key];
+    if (cached != null) return cached;
+
+    if (_cache.length > 24) _cache.clear();
+    final result = _calculate(timeframe);
+    _cache[key] = result;
+    return result;
   }
 
   DashboardAnalytics _calculate(AnalyticsState timeframeState) {
@@ -142,7 +191,8 @@ class DashboardAnalyticsNotifier extends Notifier<DashboardAnalytics> {
       start = referenceDate.subtract(Duration(days: referenceDate.weekday - 1));
       daysCount = 7;
       final endW = start.add(const Duration(days: 6));
-      periodLabel = '${DateFormat('MMM d').format(start)} - ${DateFormat('MMM d').format(endW)}';
+      periodLabel =
+          '${DateFormat('MMM d').format(start)} - ${DateFormat('MMM d').format(endW)}';
     } else if (timeframe == Timeframe.thisMonth) {
       start = DateTime(referenceDate.year, referenceDate.month, 1);
       daysCount = DateTime(referenceDate.year, referenceDate.month + 1, 0).day;
@@ -150,7 +200,8 @@ class DashboardAnalyticsNotifier extends Notifier<DashboardAnalytics> {
     } else {
       start = DateTime(referenceDate.year, 1, 1);
       final isLeap =
-          referenceDate.year % 4 == 0 && (referenceDate.year % 100 != 0 || referenceDate.year % 400 == 0);
+          referenceDate.year % 4 == 0 &&
+          (referenceDate.year % 100 != 0 || referenceDate.year % 400 == 0);
       daysCount = isLeap ? 366 : 365;
       periodLabel = DateFormat('yyyy').format(start);
     }
@@ -329,22 +380,93 @@ class DashboardAnalyticsNotifier extends Notifier<DashboardAnalytics> {
       consistencyScore: consistencyScore,
       cumulativeIntake: cumulativeIntake,
       cumulativeTarget: cumulativeTarget,
-      insights: _generateInsights(progress, consistencyScore, streakDays),
+      insights: _generateInsights(
+        totalConsumed: totalConsumed,
+        totalGoal: totalGoal,
+        adjustedDailyTarget: adjustedDailyTarget,
+        daysIncludingToday: daysIncludingToday,
+        consistencyScore: consistencyScore,
+        streakDays: streakDays,
+      ),
       streakDays: streakDays,
       periodLabel: periodLabel,
-      canGoBack: storage.getFirstEntryDate() != null && start.isAfter(storage.getFirstEntryDate()!),
+      canGoBack:
+          storage.getFirstEntryDate() != null &&
+          start.isAfter(storage.getFirstEntryDate()!),
       canGoForward: end.isBefore(DateTime(now.year, now.month, now.day)),
     );
   }
 
-  List<Insight> _generateInsights(double p, int score, int streak) {
-    return [
-      Insight(
-        title: 'Overview',
-        description: 'Your metrics are looking good for this period.',
-        type: InsightType.info,
-        icon: IconType.trending,
-      ),
-    ]; // Can be expanded later
+  List<Insight> _generateInsights({
+    required int totalConsumed,
+    required int totalGoal,
+    required int adjustedDailyTarget,
+    required int daysIncludingToday,
+    required int consistencyScore,
+    required int streakDays,
+  }) {
+    final insights = <Insight>[];
+
+    if (totalConsumed == 0) {
+      insights.add(
+        const Insight(
+          title: 'A fresh page',
+          description: 'Log a meal on Today and your intake will appear here.',
+          type: InsightType.info,
+          icon: IconType.trending,
+        ),
+      );
+      return insights;
+    }
+
+    final remaining = totalGoal - totalConsumed;
+    if (remaining < 0) {
+      insights.add(
+        Insight(
+          title: 'Over budget',
+          description:
+              'You are ${remaining.abs()} kcal over this period. '
+              'A few lighter days will bring the average back down.',
+          type: InsightType.warning,
+          icon: IconType.alert,
+        ),
+      );
+    } else {
+      insights.add(
+        Insight(
+          title: 'On track',
+          description:
+              '$remaining kcal left. About $adjustedDailyTarget kcal/day '
+              'for the remaining $daysIncludingToday day'
+              '${daysIncludingToday == 1 ? '' : 's'} keeps you on budget.',
+          type: InsightType.positive,
+          icon: IconType.target,
+        ),
+      );
+    }
+
+    if (streakDays >= 3) {
+      insights.add(
+        Insight(
+          title: '$streakDays-day streak',
+          description:
+              'You stayed close to your daily target $streakDays days in a row.',
+          type: InsightType.positive,
+          icon: IconType.streak,
+        ),
+      );
+    } else if (consistencyScore >= 80) {
+      insights.add(
+        Insight(
+          title: 'Steady intake',
+          description:
+              '$consistencyScore% of logged days landed near your target.',
+          type: InsightType.positive,
+          icon: IconType.trophy,
+        ),
+      );
+    }
+
+    return insights;
   }
 }

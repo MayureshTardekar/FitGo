@@ -11,4 +11,7 @@ class WeightEntry extends HiveObject {
   final double weight;
 
   WeightEntry({required this.dateKey, required this.weight});
+
+  /// Detached copy, safe to store in a different Hive box or account cache.
+  WeightEntry copy() => WeightEntry(dateKey: dateKey, weight: weight);
 }

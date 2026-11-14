@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://flutter.dev"><img src="https://img.shields.io/badge/Built_with-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white" alt="Flutter"></a>
   <a href="#"><img src="https://img.shields.io/badge/Database-Hive%20%2B%20Supabase-success?style=flat-square" alt="Database"></a>
-  <a href="#"><img src="https://img.shields.io/badge/Version-v2.0-orange?style=flat-square" alt="Version"></a>
+  <a href="#"><img src="https://img.shields.io/badge/Version-v3.0-orange?style=flat-square" alt="Version"></a>
   <a href="#"><img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License"></a>
 </p>
 
@@ -81,6 +81,7 @@
 ## 🧠 Key Design Decisions
 
 - **Offline-First**: All data lives in Hive locally. App works perfectly without an active internet connection.
+- **Account-Isolated Cache**: Guest mode and each Supabase user get separate Hive namespaces. Local edits queue in an outbox and are never uploaded under another account.
 - **Timestamp Delta for Fasting**: Instead of running background timers (battery drain), we store `T_start_epoch` in Hive. `elapsed = DateTime.now() - T_start_epoch`. The OS can kill the app — time still passes.
 - **Weekly Budget Redistribution**: Daily target = `(weekly_goal - calories_consumed_so_far) / remaining_days`. The math forces consistency.
 - **MET-Based Exercise Calories**: Scientifically accurate metric for 12 activity types.
@@ -118,6 +119,45 @@ Generate a production-ready application binary:
 flutter build apk --release
 ```
 *APK output path:* `build/app/outputs/flutter-apk/app-release.apk`
+
+### iOS and TestFlight
+
+iOS builds require macOS (or the macOS CI runner), Xcode, and CocoaPods. The
+deployment target is iOS 16.
+
+```bash
+flutter pub get
+cd ios && pod install && cd ..
+flutter build ipa --release
+```
+
+CI runs on GitHub Actions:
+
+- `.github/workflows/ci.yml` — analyze, tests, Android release build, and an
+  unsigned iOS compile check on every push/PR.
+- `.github/workflows/ios-beta.yml` — manual TestFlight upload through
+  `fastlane` (`fastlane/Fastfile`).
+
+For TestFlight, add these repository secrets:
+
+| Secret | Purpose |
+|---|---|
+| `APP_STORE_CONNECT_API_KEY_ID` | App Store Connect API key ID |
+| `APP_STORE_CONNECT_API_ISSUER_ID` | App Store Connect issuer ID |
+| `APP_STORE_CONNECT_API_KEY_CONTENT` | Base64-encoded `.p8` key |
+| `MATCH_GIT_URL` | Private certificates repository |
+| `MATCH_PASSWORD` | `match` encryption password |
+| `APPLE_TEAM_ID` | Apple Developer team ID |
+| `ITC_TEAM_ID` | App Store Connect team ID (optional) |
+
+Supabase OAuth redirect URL: `com.fitgo.fitgo://login-callback`. Add the same
+URL to the Supabase Auth redirect allow-list, enable the Apple provider for
+Sign in with Apple, and enable Google with a Google Cloud **Web application**
+OAuth client (not an iOS client). The Web client secret goes in Supabase.
+
+Before App Store submission, configure in-app account deletion and Apple token
+revocation in a Supabase Edge Function. Do not ship the Apple `.p8` key in the
+app. See `upgrade.md` Phase 8.4.
 
 ---
 

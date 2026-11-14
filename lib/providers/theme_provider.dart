@@ -7,15 +7,26 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
   @override
   ThemeMode build() {
     final storage = ref.read(localStorageProvider);
-    return storage.getThemeModeKey() == 'light'
-        ? ThemeMode.light
-        : ThemeMode.dark;
+    return switch (storage.getThemeModeKey()) {
+      'light' => ThemeMode.light,
+      'dark' => ThemeMode.dark,
+      _ => ThemeMode.system,
+    };
   }
 
-  void setDarkMode(bool enabled) {
-    final mode = enabled ? ThemeMode.dark : ThemeMode.light;
-    ref.read(localStorageProvider).saveThemeModeKey(enabled ? 'dark' : 'light');
+  void setMode(ThemeMode mode) {
+    final value = switch (mode) {
+      ThemeMode.light => 'light',
+      ThemeMode.dark => 'dark',
+      ThemeMode.system => 'system',
+    };
+    ref.read(localStorageProvider).saveThemeModeKey(value);
     state = mode;
+  }
+
+  /// Kept for older callers; prefer [setMode].
+  void setDarkMode(bool enabled) {
+    setMode(enabled ? ThemeMode.dark : ThemeMode.light);
   }
 }
 

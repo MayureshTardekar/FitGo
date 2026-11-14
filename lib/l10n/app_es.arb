@@ -1,0 +1,16 @@
+{
+  "@@locale": "es",
+  "appTitle": "FitGo",
+  "today": "Hoy",
+  "trends": "Tendencias",
+  "profile": "Perfil",
+  "settings": "Ajustes",
+  "save": "Guardar",
+  "cancel": "Cancelar",
+  "delete": "Eliminar",
+  "undo": "Deshacer",
+  "retry": "Reintentar",
+  "offlineSavedLocally": "Sin conexión · guardado en el dispositivo",
+  "syncing": "Sincronizando…",
+  "synced": "Sincronizado"
+}

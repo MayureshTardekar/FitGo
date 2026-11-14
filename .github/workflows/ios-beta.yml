@@ -1,0 +1,54 @@
+name: iOS TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: Fastlane lane to run
+        type: choice
+        default: beta
+        options: [beta, test]
+
+concurrency:
+  group: ios-testflight
+  cancel-in-progress: false
+
+jobs:
+  testflight:
+    name: Build and upload to TestFlight
+    runs-on: macos-latest
+    env:
+      APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+      APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+      APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      ITC_TEAM_ID: ${{ secrets.ITC_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Check required secrets
+        shell: bash
+        run: |
+          missing=0
+          for key in APP_STORE_CONNECT_API_KEY_ID APP_STORE_CONNECT_API_ISSUER_ID APP_STORE_CONNECT_API_KEY_CONTENT MATCH_PASSWORD MATCH_GIT_URL APPLE_TEAM_ID; do
+            if [ -z "${!key}" ]; then
+              echo "::error::Missing repository secret: $key"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Run fastlane
+        run: bundle exec fastlane ios ${{ inputs.lane }}

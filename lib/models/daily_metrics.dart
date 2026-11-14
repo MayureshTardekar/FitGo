@@ -101,4 +101,30 @@ class DailyMetrics extends HiveObject {
 
   /// Net calories = eaten - burned
   int get netCalories => totalCalories - caloriesBurned;
+
+  /// Detached copy, safe to store in a different Hive box or account cache.
+  DailyMetrics copy() => DailyMetrics(
+    dateKey: dateKey,
+    totalCalories: totalCalories,
+    waterMl: waterMl,
+    weight: weight,
+    fastingStartEpoch: fastingStartEpoch,
+    fastingDurationMinutes: fastingDurationMinutes,
+    calorieEntries: List<int>.of(calorieEntries),
+    steps: steps,
+    caloriesBurned: caloriesBurned,
+    activities: List<String>.of(activities),
+    sleepMinutes: sleepMinutes,
+    sleepBedtime: sleepBedtime,
+    sleepWakeTime: sleepWakeTime,
+    proteinGrams: proteinGrams,
+    carbsGrams: carbsGrams,
+    fatGrams: fatGrams,
+    fiberGrams: fiberGrams,
+    sugarGrams: sugarGrams,
+    nutritionEntries: List<String>.of(nutritionEntries),
+    fastingReminderMinutes: fastingReminderMinutes,
+    fastingReminderEnabled: fastingReminderEnabled,
+    fastingLastReminderEpoch: fastingLastReminderEpoch,
+  );
 }

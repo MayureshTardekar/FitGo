@@ -73,8 +73,9 @@ class WeightChart extends ConsumerWidget {
                     : 1,
                 getTitlesWidget: (value, meta) {
                   final index = value.toInt();
-                  if (index < 0 || index >= entries.length)
+                  if (index < 0 || index >= entries.length) {
                     return const SizedBox();
+                  }
                   final date = entries[index].dateKey;
                   return Padding(
                     padding: const EdgeInsets.only(top: 6),

@@ -1,0 +1,16 @@
+{
+  "@@locale": "hi",
+  "appTitle": "FitGo",
+  "today": "आज",
+  "trends": "रुझान",
+  "profile": "प्रोफ़ाइल",
+  "settings": "सेटिंग्स",
+  "save": "सहेजें",
+  "cancel": "रद्द करें",
+  "delete": "हटाएँ",
+  "undo": "पूर्ववत करें",
+  "retry": "फिर कोशिश करें",
+  "offlineSavedLocally": "ऑफ़लाइन · डिवाइस पर सहेजा गया",
+  "syncing": "सिंक हो रहा है…",
+  "synced": "सिंक हो गया"
+}

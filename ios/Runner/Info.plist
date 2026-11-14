@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Fitgo</string>
+	<string>FitGo</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>fitgo</string>
+	<string>FitGo</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -28,12 +28,28 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+
+	<!-- Return path for Supabase OAuth (Google, etc.) -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.fitgo.fitgo</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.fitgo.fitgo</string>
+				<string>fitgo</string>
+			</array>
+		</dict>
+	</array>
+
+	<!-- iPhone: portrait only for v3.0 -->
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+
+	<!-- iPad: all orientations -->
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -41,9 +57,48 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+
+	<!-- HealthKit -->
+	<key>NSHealthShareUsageDescription</key>
+	<string>FitGo reads your steps, sleep, workouts, and weight so your daily dashboard stays accurate without manual entry.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>FitGo can save water, weight, and workouts you log to Apple Health.</string>
+
+	<!-- Motion / pedometer fallback -->
+	<key>NSMotionUsageDescription</key>
+	<string>FitGo uses motion data to count your steps and estimate activity calories.</string>
+
+	<!-- Face ID app lock -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>FitGo uses Face ID to protect your health data when you reopen the app.</string>
+
+	<!-- Barcode and progress photos -->
+	<key>NSCameraUsageDescription</key>
+	<string>FitGo uses the camera to scan food barcodes and capture meal photos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>FitGo lets you choose a progress photo to track your journey.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>FitGo saves progress photos to your photo library.</string>
+
+	<!-- Only standard HTTPS is used -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+
+	<!-- Remote push (enabled when a push provider is added) -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+
+	<!-- Live Activities (iOS 16.1+) -->
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
 	<true/>
 </dict>
 </plist>
