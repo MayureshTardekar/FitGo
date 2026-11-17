@@ -66,7 +66,23 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Today'),
+        title: Row(
+          children: [
+            const Text('Today'),
+            const SizedBox(width: FitGoSpacing.sm),
+            Flexible(
+              child: Text(
+                DateFormat('EEE, d MMM').format(DateTime.now()),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: context.tokens.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.history_rounded),
@@ -95,16 +111,7 @@ class HomeScreen extends ConsumerWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               spacing: FitGoSpacing.sm,
               runSpacing: FitGoSpacing.xs,
-              children: [
-                const SyncStatusPill(),
-                const _DailyStreakBadge(),
-                Text(
-                  DateFormat('EEE, d MMM').format(DateTime.now()),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: context.tokens.textSecondary,
-                  ),
-                ),
-              ],
+              children: [const SyncStatusPill(), const _DailyStreakBadge()],
             ),
             const SizedBox(height: FitGoSpacing.sm),
             const _CalorieHero(),
@@ -125,39 +132,124 @@ class _DailyStreakBadge extends ConsumerStatefulWidget {
   @override
   ConsumerState<_DailyStreakBadge> createState() => _DailyStreakBadgeState();
 }
-class _DailyStreakBadgeState extends ConsumerState<_DailyStreakBadge> with SingleTickerProviderStateMixin {
+
+class _DailyStreakBadgeState extends ConsumerState<_DailyStreakBadge>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   bool _reduceMotion = false;
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 700), lowerBound: 0.94, upperBound: 1.08);
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+      lowerBound: 0.94,
+      upperBound: 1.08,
+    );
   }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _reduceMotion = MediaQuery.disableAnimationsOf(context);
-    if (_reduceMotion) { _controller.stop(); _controller.value = 1; }
+    if (_reduceMotion) {
+      _controller.stop();
+      _controller.value = 1;
+    }
   }
+
   @override
-  void dispose() { _controller.dispose(); super.dispose(); }
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    ref.watch(nutritionProvider); ref.watch(waterProvider); ref.watch(activityProvider); ref.watch(weightProvider); ref.watch(fastingProvider);
-    final dates = ref.watch(localStorageProvider).getAllMetrics().where(_hasLog).map((m) => m.dateKey).toSet();
+    ref.watch(nutritionProvider);
+    ref.watch(waterProvider);
+    ref.watch(activityProvider);
+    ref.watch(weightProvider);
+    ref.watch(fastingProvider);
+    final dates = ref
+        .watch(localStorageProvider)
+        .getAllMetrics()
+        .where(_hasLog)
+        .map((m) => m.dateKey)
+        .toSet();
     final now = DateTime.now();
     final today = DateFormat('yyyy-MM-dd').format(now);
-    final yesterday = DateFormat('yyyy-MM-dd').format(DateTime(now.year, now.month, now.day - 1));
+    final yesterday = DateFormat(
+      'yyyy-MM-dd',
+    ).format(DateTime(now.year, now.month, now.day - 1));
     var cursor = DateTime(now.year, now.month, now.day);
-    if (!dates.contains(today)) { if (!dates.contains(yesterday)) return const SizedBox.shrink(); cursor = cursor.subtract(const Duration(days: 1)); }
+    if (!dates.contains(today)) {
+      if (!dates.contains(yesterday)) {
+        if (_controller.isAnimating) _controller.stop();
+        _controller.value = 1;
+        return const SizedBox.shrink();
+      }
+      cursor = cursor.subtract(const Duration(days: 1));
+    }
     var count = 0;
-    while (dates.contains(DateFormat('yyyy-MM-dd').format(cursor))) { count++; cursor = cursor.subtract(const Duration(days: 1)); }
-    if (count > 0 && !_reduceMotion && !_controller.isAnimating) { _controller.repeat(reverse: true); }
-    if ((count == 0 || _reduceMotion) && _controller.isAnimating) { _controller.stop(); _controller.value = 1; }
+    while (dates.contains(DateFormat('yyyy-MM-dd').format(cursor))) {
+      count++;
+      cursor = cursor.subtract(const Duration(days: 1));
+    }
+    if (count > 0 && !_reduceMotion && !_controller.isAnimating) {
+      _controller.repeat(reverse: true);
+    }
+    if ((count == 0 || _reduceMotion) && _controller.isAnimating) {
+      _controller.stop();
+      _controller.value = 1;
+    }
     final color = context.tokens.ember;
-    return Semantics(label: '$count day logging streak', child: DecoratedBox(decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(999)), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), child: Row(mainAxisSize: MainAxisSize.min, children: [ScaleTransition(scale: _controller, child: Icon(Icons.local_fire_department_rounded, size: 18, color: color)), const SizedBox(width: 4), Text('$count', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: color, fontWeight: FontWeight.w800))]))));
+    return Semantics(
+      label: '$count day logging streak',
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ScaleTransition(
+                scale: _controller,
+                child: Icon(
+                  Icons.local_fire_department_rounded,
+                  size: 18,
+                  color: color,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '$count',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
-  bool _hasLog(DailyMetrics m) => m.totalCalories > 0 || m.calorieEntries.isNotEmpty || m.nutritionEntries.isNotEmpty || m.waterMl > 0 || m.weight != null || m.steps > 0 || m.caloriesBurned > 0 || m.activities.isNotEmpty || m.sleepMinutes > 0 || m.fastingStartEpoch != null;
+
+  bool _hasLog(DailyMetrics m) =>
+      m.totalCalories > 0 ||
+      m.calorieEntries.isNotEmpty ||
+      m.nutritionEntries.isNotEmpty ||
+      m.waterMl > 0 ||
+      m.weight != null ||
+      m.steps > 0 ||
+      m.caloriesBurned > 0 ||
+      m.activities.isNotEmpty ||
+      m.sleepMinutes > 0 ||
+      m.fastingStartEpoch != null;
 }
 
 class _CalorieHero extends ConsumerWidget {

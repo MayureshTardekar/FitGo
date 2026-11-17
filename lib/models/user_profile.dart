@@ -177,7 +177,7 @@ class UserProfile extends HiveObject {
 
   /// The saved target date converted into daily targets, or null when no
   /// target weight/date has been chosen yet.
-  GoalPlan? get goalPlan {
+  GoalPlan? goalPlanFor([DateTime? today]) {
     final date = goalTargetDateValue;
     if (targetWeightKg <= 0 || date == null) return null;
     return GoalPlan.calculate(
@@ -185,9 +185,11 @@ class UserProfile extends HiveObject {
       targetWeightKg: targetWeightKg,
       targetDate: date,
       tdee: tdee,
-      today: DateTime.now(),
+      today: today ?? DateTime.now(),
     );
   }
+
+  GoalPlan? get goalPlan => goalPlanFor();
 
   /// Detached copy, safe to store in a different Hive box or account cache.
   UserProfile copy() => UserProfile(

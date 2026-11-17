@@ -2,7 +2,7 @@ name: fitgo
 description: "Offline-first calorie, fasting, hydration, activity, and weight tracking."
 publish_to: 'none'
 
-version: 3.0.1+4
+version: 3.0.3+5
 
 environment:
   sdk: ^3.10.8

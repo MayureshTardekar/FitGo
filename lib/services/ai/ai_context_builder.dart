@@ -194,7 +194,7 @@ class AiContextBuilder {
           '${profile.waterGoalMl} ml water; TDEE ${profile.tdee} kcal.',
         );
 
-      final plan = profile.goalPlan;
+      final plan = profile.goalPlanFor(today);
       if (plan == null) {
         prompt.writeln(
           'Weight goal: ${profile.weightGoal}; no target weight/date set.',
@@ -404,7 +404,7 @@ class AiContextBuilder {
     final oldest = window.isEmpty ? entries.first : window.first;
     final spanDays = latest.date.difference(oldest.date).inDays;
     final change = spanDays >= 5 ? latest.weight - oldest.weight : null;
-    final plan = profile?.goalPlan;
+    final plan = profile?.goalPlanFor(today);
     final expected = plan == null || change == null
         ? null
         : plan.weeklyKgChange * spanDays / 7;
