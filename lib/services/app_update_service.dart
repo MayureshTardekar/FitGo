@@ -42,7 +42,7 @@ class AppUpdateService {
 
   static const String repoOwner = 'MayureshTardekar';
   static const String repoName = 'FitGo';
-  static const String fallbackCurrentVersion = '3.0.3';
+  static const String fallbackCurrentVersion = '3.0.4';
 
   Future<String> getCurrentVersion() async {
     try {
