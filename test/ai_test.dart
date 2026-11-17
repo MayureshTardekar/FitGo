@@ -12,6 +12,7 @@ import 'package:fitgo/services/ai/ai_context_builder.dart';
 import 'package:fitgo/services/ai/ai_failure.dart';
 import 'package:fitgo/services/ai/ai_key_store.dart';
 import 'package:fitgo/services/ai/ai_models.dart';
+import 'package:fitgo/services/ai/ai_prompts.dart';
 import 'package:fitgo/services/ai/ai_usage.dart';
 import 'package:fitgo/services/ai/gemini_client.dart';
 import 'package:fitgo/services/local_storage.dart';
@@ -218,12 +219,24 @@ void main() {
       expect(snapshot.avgCalories7, 2200);
       expect(snapshot.avgWaterMl7, 2500);
       expect(snapshot.weightChange14, -1.0);
-      expect(snapshot.prompt, contains('APP ON-TRACK STATUS: ON_TRACK'));
+      expect(snapshot.prompt, contains('Private progress classification'));
+      expect(snapshot.prompt, contains('ON_TRACK'));
+      expect(snapshot.prompt, isNot(contains('APP ON-TRACK STATUS')));
       expect(snapshot.prompt, contains('FITGO SNAPSHOT'));
       expect(snapshot.prompt.toLowerCase(), isNot(contains('@')));
       expect(snapshot.prompt, isNot(contains('account_a')));
       expect(snapshot.prompt, isNot(contains('test-key')));
     });
+
+    test(
+      'coach prompt keeps answers direct and hides internal status labels',
+      () {
+        expect(AiPrompts.system, contains('Answer the exact question'));
+        expect(AiPrompts.system, contains('Mention progress status only when'));
+        expect(AiPrompts.system, contains('Do not give unsolicited plans'));
+        expect(AiPrompts.system, contains('restriction, fasting, or exercise'));
+      },
+    );
 
     test('marks two large misses as off track and sparse logs as unknown', () {
       final now = DateTime(2026, 5, 20);
@@ -306,6 +319,9 @@ void main() {
         clientFactory: () => MockClient((request) async {
           final body = jsonDecode(request.body) as Map<String, dynamic>;
           expect(body.containsKey('contents'), isTrue);
+          final generationConfig =
+              body['generationConfig'] as Map<String, dynamic>;
+          expect(generationConfig['maxOutputTokens'], 512);
           expect(request.headers['x-goog-api-key'], isNotEmpty);
           expect(request.url.query, isNot(contains('test-key')));
           return _answer(' Here is your week. ');

@@ -240,13 +240,18 @@ class AiContextBuilder {
     prompt.writeln('Weight trend: ${weightSummary.text}');
 
     prompt
-      ..writeln('APP ON-TRACK STATUS: ${_statusLabel(status)}')
       ..writeln(
-        'App reasons: ${reasons.isEmpty ? 'none' : reasons.join('; ')}.',
+        'Private progress classification (use only if the user asks about '
+        'progress): ${_statusLabel(status)}.',
       )
       ..writeln(
-        'Use this status as authoritative. Explain it supportively and do not '
-        'recalculate a different goal or tell the user to change their target.',
+        'Relevant progress evidence: '
+        '${reasons.isEmpty ? 'none available' : reasons.join('; ')}.',
+      )
+      ..writeln(
+        'Do not quote the classification label. Translate it into plain '
+        'language only when asked; do not recalculate it or prescribe a target '
+        'change.',
       );
 
     return AiContextSnapshot(
