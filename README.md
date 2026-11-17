@@ -1,177 +1,286 @@
 <p align="center">
-  <img src="FitGO.png" width="180" alt="FitGo Logo">
+  <img src="FitGO.png" width="180" alt="FitGo logo">
 </p>
 
-<h1 align="center">FitGo — Your Path to Fitness</h1>
+<h1 align="center">FitGo</h1>
 
 <p align="center">
-  A comprehensive, offline-first fitness tracking app built with Flutter. Track calories, fasting, water intake, exercise, sleep, and weight — all with smart weekly budget management and advanced analytics.
+  Offline-first daily fitness tracking for calories, fasting, hydration, activity, sleep, weight, and progress trends.
 </p>
 
 <p align="center">
-  <a href="https://flutter.dev"><img src="https://img.shields.io/badge/Built_with-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white" alt="Flutter"></a>
-  <a href="#"><img src="https://img.shields.io/badge/Database-Hive%20%2B%20Supabase-success?style=flat-square" alt="Database"></a>
-  <a href="#"><img src="https://img.shields.io/badge/Version-v3.0-orange?style=flat-square" alt="Version"></a>
-  <a href="#"><img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License"></a>
+  <a href="https://flutter.dev"><img src="https://img.shields.io/badge/Built%20with-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white" alt="Built with Flutter"></a>
+  <img src="https://img.shields.io/badge/Storage-Offline--first-0F766E?style=flat-square" alt="Offline first">
+  <img src="https://img.shields.io/badge/Version-3.0.0-F25C2A?style=flat-square" alt="Version 3.0.0">
 </p>
+
+FitGo keeps the daily routine simple. Add a meal, record water, start a fast, log activity, and review your progress without needing an internet connection. Your information is saved on the device first. Sign in only when you want a private cloud backup and cross-device access.
+
+> FitGo is a personal tracking tool. It does not replace medical, nutritional, or clinical advice.
 
 ---
 
-## 📱 App Previews
+## App preview
 
 <p align="center">
-  <img src="img1.jpg" width="23%" alt="Dashboard Screenshot"> &nbsp;
-  <img src="img2.jpg" width="23%" alt="Analytics Screenshot"> &nbsp;
-  <img src="img3.jpg" width="23%" alt="Tracking Screenshot"> &nbsp;
-  <img src="img4.jpg" width="23%" alt="Profile Screenshot">
-</p>
-
-<br>
-
-<p align="center">
-  <img src="imge3.jpg" width="23%" alt="Extra Feature 1"> &nbsp;
-  <img src="img6.jpg" width="23%" alt="Extra Feature 2">
+  <img src="img1.jpg" width="23%" alt="FitGo Today screen">
+  <img src="img2.jpg" width="23%" alt="FitGo Trends screen">
+  <img src="img3.jpg" width="23%" alt="FitGo logging screen">
+  <img src="img4.jpg" width="23%" alt="FitGo Profile screen">
 </p>
 
 ---
 
-## 🚀 Features
+## What you can do
 
-### 🥗 Calorie Management
-- **Weekly Calorie Budget** — Set a weekly target (e.g., 7500 kcal/week), app auto-calculates daily quota
-- **Smart Redistribution** — Eat less today? Tomorrow's allowance increases automatically
-- **Quick Add Buttons** — +100, +250, +500 kcal with one tap, or enter custom amounts
-- **Net Calories** — `Eaten - Burned = Net` — the number that actually matters
-
-### ⏳ Intermittent Fasting Timer
-- **Radial Dial** — Beautiful red-to-amber gradient that fills as your fast progresses
-- **Timestamp Delta** — Survives app kills, restarts, and OS battery optimization
-- **Flexible Presets** — 16:8, 18:6, 20:4
-- **Overtime Counter** — Shows how long you've fasted past your goal
-
-### 🏃‍♂️ Activity Tracking
-- **Step Counter** — Auto-calculates calories burned and distance
-- **Exercise Logger** — 12 preset activities (Running, Cycling, Gym, Yoga, HIIT, Swimming, etc.) with MET-based calorie burn calculations
-- **Sleep Tracker** — Log bedtime & wake time, quality indicator, 8h target tracking
-
-### 💧 Water & ⚖️ Weight Tracker
-- **Quick +250ml** button with glass indicators & dynamic goals based on body weight (~35ml per kg)
-- **Manual weight logging** with trend chart & **BMI auto-calculation** with color-coded categories
-
-### 📊 Advanced Analytics Dashboard (V2.0 Upgraded)
-- **Consistency Score** — 0-100 ring showing how well you hit daily targets
-- **Cumulative Trend & Daily Zigzag Chart** — Toggle between actual intake vs ideal pace (with **Dynamic Red Alerts** for target breaches)
-- **Dynamic Stacked Bar Chart** — Color-coded bars (Yellow for safe, Red for excess limits)
-- **Smart Insights Engine** — Auto-generated tips: streak detection, hydration checks, budget advice
+| Area | What FitGo provides |
+| --- | --- |
+| Daily calories | Log named meals, calories, and optional macros. Reuse recent or saved meals, adjust portions, remove an entry, and undo a recent action. |
+| Weekly budget | Set a weekly calorie budget. FitGo shows the remaining daily amount and adjusts the pace across the rest of the week. |
+| Fasting | Start a 16:8, 18:6, 20:4, 24-hour, or 36-hour fast. The timer keeps counting from its start time after app restarts. |
+| Water | Add water in one tap, undo an accidental entry, and use a goal based on your profile. |
+| Activity and sleep | Manually record steps, exercise, calories burned, bedtime, wake time, and sleep duration. |
+| Weight | Log body weight, view a trend chart, and see your BMI in Profile. |
+| Goal plan | Choose a target weight and date. FitGo shows the raw calorie target; a negative result is explained but does not block saving. |
+| Intake forecast | Enter a daily intake to see an estimated weight on the selected goal date. This local estimate excludes activity. |
+| Trends | Compare intake with budget by week, month, or year. Open a prior day to review or correct its log. |
+| Reminders | Use fasting reminders and a monthly calorie guard that warns before a chosen monthly limit. |
+| Appearance and units | Follow the device theme or choose light or dark mode. Switch between metric and imperial units. |
+| Backup | Use FitGo as a local guest, or sign in with email, Google, or Apple to back up your data with Supabase. |
+| Optional AI coach | Add your own Gemini API key for read-only, data-aware coaching inside the app. |
 
 ---
 
-## ⚙️ Tech Stack
+## Your first five minutes
 
-| Layer | Technology |
-|---|---|
-| **Framework** | Flutter (Dart) |
-| **State Management** | Riverpod |
-| **Local Storage** | Hive (Offline-First approach) |
-| **Backend & Auth** | Supabase (PostgreSQL + Email/OAuth) |
-| **Data Visualization**| fl_chart |
+1. Open FitGo and choose **Continue without an account** for a local guest profile, or create an account to enable backup.
+2. Complete the short setup with your body details, activity level, and preferred goal.
+3. Open **Profile → Goals → Goal plan** if you want a target weight and date. FitGo will show a practical daily calorie and water target.
+4. Go to **Today** and add your first meal, water entry, fast, or health log.
+5. Return to **Trends** after a few days to review your intake against the budget.
 
----
-
-## 🧠 Key Design Decisions
-
-- **Offline-First**: All data lives in Hive locally. App works perfectly without an active internet connection.
-- **Account-Isolated Cache**: Guest mode and each Supabase user get separate Hive namespaces. Local edits queue in an outbox and are never uploaded under another account.
-- **Timestamp Delta for Fasting**: Instead of running background timers (battery drain), we store `T_start_epoch` in Hive. `elapsed = DateTime.now() - T_start_epoch`. The OS can kill the app — time still passes.
-- **Weekly Budget Redistribution**: Daily target = `(weekly_goal - calories_consumed_so_far) / remaining_days`. The math forces consistency.
-- **MET-Based Exercise Calories**: Scientifically accurate metric for 12 activity types.
+You can use all daily tracking features while offline. An account is optional for using the app.
 
 ---
 
-## 🛠️ Setup & Installation
+## How to use FitGo every day
 
-### Prerequisites
-- Flutter SDK (3.x+) & Dart SDK
-- A Supabase project
+### Today
 
-### Running Locally
-```bash
-# Clone the repo
+**Today** is the fast logging screen.
+
+- Tap **Log meal** to choose a recent meal, choose a saved meal, or enter a meal name and calories.
+- Expand **Details (macros)** only when you want to log protein, carbs, fat, fibre, or sugar.
+- Enable **Save to my meals** to make a meal available next time.
+- Tap **Water** for a quick drink entry. FitGo gives you an **Undo** action after logging.
+- Tap **Fasting** and choose a fasting window. You can also record an earlier start time when needed.
+- Open **Health** to manually log activity, sleep, or weight.
+
+The calorie hero shows the amount still available for today. If you log less or more than expected, the weekly budget recalculates the remaining pace.
+
+### Meals and nutrition
+
+FitGo prioritizes speed over a large food catalogue.
+
+- Enter a meal name and calories yourself.
+- Add optional macro details when you have them.
+- Tap a recent or saved meal to refill the form.
+- Change a saved meal portion from 0.5× to 4×.
+- Delete a meal from today's list when it was logged by mistake.
+
+There is no built-in barcode scanner or external food database yet.
+
+### Fasting
+
+Choose from **16:8**, **18:6**, **20:4**, **24h**, or **36h**.
+
+- Start a preset from **Today → Fasting**.
+- Watch elapsed time, time remaining, and overtime after the target is reached.
+- Change the duration while a fast is active.
+- End a fast whenever you need to.
+- Turn on fasting reminders when you want prompts during a fast.
+
+The timer is timestamp-based, so it continues correctly after the app is closed or the phone restarts.
+
+### Water, activity, sleep, and weight
+
+- **Water** uses a quick-add action and a personal daily target.
+- **Activity** lets you enter steps and add exercise. Calorie burn is estimated from the activity and profile information.
+- **Sleep** records bedtime and wake time for a daily sleep total.
+- **Weight** stores an entry for the day and shows a recent trend chart.
+
+These are manual logs in the current release. Apple Health, Health Connect, wearable, and pedometer syncing are future work.
+
+### Trends and past days
+
+Open **Trends** to see:
+
+- Total intake compared with the budget
+- Week, month, and year views
+- A plain-language insight based on your current logs
+- Day and month history
+
+Tap a past day to review or update its food, water, activity, sleep, and weight information. Changes refresh the relevant trends and goal calculations.
+
+### Profile and goal planning
+
+**Profile** groups settings into Goals, Preferences, Account & Backup, and Help & Privacy.
+
+- Update body details, calorie budget, water target, activity level, and weight goal.
+- Use **Goal plan** for a target weight and date.
+- The planner uses the raw calculated target. If required intake is negative, FitGo explains the date is unreachable through calorie intake alone and still lets you save the goal.
+- Switch between metric and imperial units at any time. Data remains stored consistently in the background.
+- Choose System, Light, or Dark appearance.
+- Enable the monthly calorie guard and set its limit, alert time, and message.
+
+---
+
+## Offline, backup, and privacy
+
+FitGo is designed to remain useful without a connection.
+
+| Situation | What happens |
+| --- | --- |
+| You are offline | Your changes save on the device immediately. You can continue logging normally. |
+| You use a guest profile | Data stays only on that device until you explicitly import it after signing in. |
+| You are signed in | Changes queue locally and upload to your private Supabase backup when a connection is available. |
+| You have pending changes | The sync badge shows that information is saved locally and waiting to upload. |
+| You move from guest to an account | Use **Profile → Account & Backup → Import guest data** after signing in. |
+| You sign out | FitGo returns to a separate guest space. Account data is kept isolated from guest data. |
+
+Cloud refresh is pull-first and avoids replacing local changes that have not uploaded yet. For now, avoid editing the same day on two devices at the same time. A daily record is currently synced as one unit, so simultaneous changes can conflict.
+
+FitGo stores account backups in Supabase with row-level access controls. It does not sell tracking data or use it for advertising.
+
+---
+
+## Optional AI coach
+
+The AI coach is completely optional and requires your own Google Gemini API key.
+
+1. Open **Profile → Preferences → AI coach**.
+2. Add your personal Gemini key.
+3. Choose **Chat** to ask about your logged progress.
+
+FitGo prepares a compact, privacy-minimized snapshot of your recent tracking data. It excludes your name, email, account ID, and API key. The key is kept in platform secure storage for that account, while AI chat history stays on the device and can be deleted.
+
+The coach is read-only. It cannot change your goals or log data. Treat responses as general information rather than medical advice.
+
+---
+
+## Notifications
+
+FitGo requests notification access only after you choose a reminder feature.
+
+- **Fasting reminders** can prompt you while a fast is active.
+- **Monthly Calorie Guard** can notify you before your monthly calorie limit is exceeded.
+- Notification taps take you back to the relevant FitGo screen. Some notifications include quick actions such as adding water or ending a fast.
+
+Your operating system can delay or suppress notifications because of battery, focus, or permission settings. Check device notification settings if reminders do not arrive.
+
+---
+
+## Platform status
+
+FitGo is built with Flutter and has adaptive mobile layouts.
+
+| Platform | Status |
+| --- | --- |
+| Android | Supported for development and release builds. Android 13 and later can request notification permission. |
+| iPhone and iPad | iOS project foundation includes Sign in with Apple, notification callbacks, adaptive navigation, and iOS 16 deployment support. Building and TestFlight testing require macOS and Xcode. |
+| Tablet layouts | Wider screens use a navigation rail and retain each main section while switching tabs. |
+
+Before public App Store distribution, complete real iPhone and iPad testing, publish the Privacy, Terms, and Support pages, and add the required in-app account deletion flow.
+
+---
+
+## Run the project locally
+
+### Requirements
+
+- Flutter 3.41 or newer
+- Dart 3.10 or newer
+- Android Studio and an Android emulator or device for Android development
+- macOS, Xcode, and CocoaPods for iOS builds
+- A Supabase project when you want your own backend
+
+### Install and run
+
+\`\`\`bash
 git clone https://github.com/YOUR_USERNAME/FitGo.git
 cd FitGo
-
-# Install dependencies
 flutter pub get
-
-# Generate Hive adapters
-dart run build_runner build --delete-conflicting-outputs
-
-# Generate Custom App Icons
-dart run flutter_launcher_icons
-
-# Run the app
+flutter analyze
+flutter test
 flutter run
-```
+\`\`\`
 
-### Build APK
-Generate a production-ready application binary:
-```bash
+If generated Hive files need to be refreshed after changing a model, run:
+
+\`\`\`bash
+dart run build_runner build --delete-conflicting-outputs
+\`\`\`
+
+### Build Android
+
+\`\`\`bash
 flutter build apk --release
-```
-*APK output path:* `build/app/outputs/flutter-apk/app-release.apk`
+flutter build appbundle --release
+\`\`\`
 
-### iOS and TestFlight
+The APK is written to \`build/app/outputs/flutter-apk/app-release.apk\`.
 
-iOS builds require macOS (or the macOS CI runner), Xcode, and CocoaPods. The
-deployment target is iOS 16.
+### Build iOS
 
-```bash
+Run this on macOS with Xcode and CocoaPods installed:
+
+\`\`\`bash
 flutter pub get
-cd ios && pod install && cd ..
+cd ios
+pod install
+cd ..
 flutter build ipa --release
-```
-
-CI runs on GitHub Actions:
-
-- `.github/workflows/ci.yml` — analyze, tests, Android release build, and an
-  unsigned iOS compile check on every push/PR.
-- `.github/workflows/ios-beta.yml` — manual TestFlight upload through
-  `fastlane` (`fastlane/Fastfile`).
-
-For TestFlight, add these repository secrets:
-
-| Secret | Purpose |
-|---|---|
-| `APP_STORE_CONNECT_API_KEY_ID` | App Store Connect API key ID |
-| `APP_STORE_CONNECT_API_ISSUER_ID` | App Store Connect issuer ID |
-| `APP_STORE_CONNECT_API_KEY_CONTENT` | Base64-encoded `.p8` key |
-| `MATCH_GIT_URL` | Private certificates repository |
-| `MATCH_PASSWORD` | `match` encryption password |
-| `APPLE_TEAM_ID` | Apple Developer team ID |
-| `ITC_TEAM_ID` | App Store Connect team ID (optional) |
-
-Supabase OAuth redirect URL: `com.fitgo.fitgo://login-callback`. Add the same
-URL to the Supabase Auth redirect allow-list, enable the Apple provider for
-Sign in with Apple, and enable Google with a Google Cloud **Web application**
-OAuth client (not an iOS client). The Web client secret goes in Supabase.
-
-Before App Store submission, configure in-app account deletion and Apple token
-revocation in a Supabase Edge Function. Do not ship the Apple `.p8` key in the
-app. See `upgrade.md` Phase 8.4.
+\`\`\`
 
 ---
 
-## 🔬 Calorie Science
+## Configure your own backend
 
-The app uses the **Mifflin-St Jeor** equation for BMR:
-* **Male**: `BMR = 10 x weight(kg) + 6.25 x height(cm) - 5 x age + 5`
-* **Female**: `BMR = 10 x weight(kg) + 6.25 x height(cm) - 5 x age - 161`
+The repository currently points at a configured Supabase project. Before distributing a fork, create your own Supabase project and update \`lib/core/supabase_config.dart\`.
 
-**TDEE** = BMR x 1.4 (sedentary multiplier)  
-**Weight change rule**: ~7,700 kcal deficit = ~1 kg fat loss
+1. Apply the migration in \`supabase/migrations/\`.
+2. Enable the authentication methods you plan to offer.
+3. Add \`com.fitgo.fitgo://login-callback\` to Supabase Auth redirect URLs.
+4. For Google sign-in, configure a Google OAuth web client in Supabase.
+5. For Apple sign-in, enable the Apple provider in Supabase and configure the Apple capability in Xcode.
+6. Never put a Supabase service-role key or an Apple private key in the Flutter app.
+
+The supporting schema and local Supabase workflow are documented in [supabase/README.md](supabase/README.md).
 
 ---
 
-<p align="center">
-  Built with ❤️ using Flutter. Free to use, modify, and distribute under the MIT License.
-</p>
+## Project map
+
+| Location | Purpose |
+| --- | --- |
+| \`lib/screens/\` | Today, Trends, Profile, authentication, onboarding, past-day editing, and AI chat screens |
+| \`lib/ui/\` | Shared responsive components, sheets, theme tokens, and adaptive navigation |
+| \`lib/providers/\` | App state for logs, goals, sync, units, notifications, and AI |
+| \`lib/services/\` | Hive storage, Supabase sync, notifications, and optional AI services |
+| \`supabase/migrations/\` | Versioned database schema |
+| \`test/\` | Unit and widget coverage for goals, logs, sync behavior, UI layout, and AI safeguards |
+| \`upgrade.md\` | Product roadmap, verification notes, and remaining release work |
+
+---
+
+## Known limitations
+
+- Food, water, activity, sleep, and weight are user-entered records in this version.
+- No Apple Health, Health Connect, wearable, barcode scanning, progress-photo, Face ID lock, or Live Activity feature is active yet.
+- Same-day simultaneous edits on two offline devices do not have field-level conflict merging.
+- The public privacy, terms, and support links are placeholders until the FitGo website is published.
+- An App Store-ready account deletion and Apple token-revocation flow still needs to be completed.
+
+---
+
+Built with Flutter, Riverpod, Hive, Supabase, and optional Gemini integration.

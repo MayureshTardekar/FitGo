@@ -103,22 +103,14 @@ class GoalPlan {
       );
     }
 
-    final maxSafeMagnitude = isLoss
-        ? min(maxDailyDeficit, max(0, tdee - minDailyCalories))
-        : maxDailySurplus;
     final totalMagnitude = totalKcal.abs();
-    final safeDays = maxSafeMagnitude <= 0
-        ? days
-        : max(1, (totalMagnitude / maxSafeMagnitude).ceil());
-    final earliestSafeDate = todayDay.add(Duration(days: safeDays));
-    final requestedDateTooAggressive = maxSafeMagnitude <= 0 || safeDays > days;
-
     final requestedDelta = totalKcal / days;
-    final maxSafeDelta = isLoss ? -maxSafeMagnitude : maxSafeMagnitude;
-    final effectiveDelta = isLoss
-        ? max(requestedDelta, maxSafeDelta)
-        : min(requestedDelta, maxSafeDelta);
-    final dailyCalories = max(0, (tdee + effectiveDelta).round());
+    final dailyCalories = (tdee + requestedDelta).round();
+    final safeDays = tdee <= 0
+        ? days
+        : max(1, (totalMagnitude / tdee).ceil());
+    final earliestSafeDate = todayDay.add(Duration(days: safeDays));
+    final requestedDateTooAggressive = dailyCalories < 0;
 
     return GoalPlan(
       currentWeightKg: currentWeightKg,

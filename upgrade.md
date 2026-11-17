@@ -1,5 +1,19 @@
 # FitGo 3.0 — UI Upgrade & iOS Roadmap
 
+## Goal planner UX proposal — 17 Nov 2026
+
+Status: planned, not implemented.
+
+Keep the current target weight and target date inputs. Keep the existing **Use this plan** action. Directly below it, add one optional numeric input labeled **What if I eat … kcal per day?**. Use the profile and the already selected target date to calculate one prominent result: **Estimated weight on [date]: [weight]**. This is the daily-intake forecast the user asked for. Do not add a second mode, or another target/date form.
+
+Calculate on-device using simple math, with no AI or network:
+
+- Estimated weight change = (maintenance calories − entered daily intake) × days ÷ 7,700.
+- Projected weight = current weight − estimated weight change.
+
+Keep the main screen calm. Put detailed math and longer explanations behind a collapsed **Goal breakdown** or an info icon. Do not block saving or hide a zero/negative raw calorie result; show a concise explanation beside it. Keep workouts separate from the base goal and intake forecast. Logged activity may show its observed impact separately. Do not assume future workouts unless the user explicitly enters that assumption.
+
+
 > **Status:** In progress on `feature/ios-foundation`  
 > **Current app:** FitGo `3.0.0+3` — Flutter 3.41.7 / Dart 3.11.5  
 > **Target:** A polished, adaptive FitGo that feels at home on iPhone and iPad, is App Store-ready, and keeps Android working.  

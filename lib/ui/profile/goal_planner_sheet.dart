@@ -37,6 +37,7 @@ class GoalPlannerSheet extends ConsumerStatefulWidget {
 
 class _GoalPlannerSheetState extends ConsumerState<GoalPlannerSheet> {
   late final TextEditingController _targetCtrl;
+  late final TextEditingController _intakeCtrl;
   late DateTime _targetDate;
   bool _saving = false;
 
@@ -61,11 +62,13 @@ class _GoalPlannerSheetState extends ConsumerState<GoalPlannerSheet> {
     _targetCtrl = TextEditingController(
       text: widget.units.weightFromKg(initialTarget).toStringAsFixed(1),
     );
+    _intakeCtrl = TextEditingController();
   }
 
   @override
   void dispose() {
     _targetCtrl.dispose();
+    _intakeCtrl.dispose();
     super.dispose();
   }
 
@@ -92,6 +95,11 @@ class _GoalPlannerSheetState extends ConsumerState<GoalPlannerSheet> {
     final theme = Theme.of(context);
     final tokens = context.tokens;
     final plan = _plan;
+    final intake = double.tryParse(_intakeCtrl.text.trim());
+    final forecastWeightKg = plan == null || intake == null
+        ? null
+        : widget.profile.weightKg -
+            ((widget.profile.tdee - intake) * plan.days / GoalPlan.kcalPerKg);
 
     return FitGoSheet(
       title: 'Plan your goal',
@@ -178,14 +186,47 @@ class _GoalPlannerSheetState extends ConsumerState<GoalPlannerSheet> {
               ),
             ],
           ),
+          const SizedBox(height: FitGoSpacing.sm),
+          TextField(
+            controller: _intakeCtrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'What if I eat … kcal per day?',
+              prefixIcon: Icon(Icons.restaurant_outlined),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+          if (forecastWeightKg != null) ...[
+            const SizedBox(height: FitGoSpacing.sm),
+            Text(
+              'Estimated weight on ${DateFormat('d MMM yyyy').format(_targetDate)}: ${widget.units.formatWeight(forecastWeightKg)}',
+              style: theme.textTheme.titleLarge?.copyWith(
+                color: tokens.textPrimary,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
           const SizedBox(height: FitGoSpacing.xs),
-          Text(
-            'Estimates use 7,700 kcal per kg of body-weight change. '
-            'Water is based on your current weight and never below '
-            '${GoalPlan.minDailyWaterMl ~/ 1000} L/day. Actual progress varies '
-            'with water, hormones, and activity.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: tokens.textSecondary,
+          Align(
+            alignment: Alignment.centerRight,
+            child: IconButton(
+              tooltip: 'About these estimates',
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (dialogContext) => AlertDialog(
+                  title: const Text('About these estimates'),
+                  content: const Text(
+                    'The forecast uses your profile maintenance estimate and 7,700 kcal per kg. It assumes the entered intake stays the same until your selected date. Activity is not included. Actual weight change varies.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: const Text('Close'),
+                    ),
+                  ],
+                ),
+              ),
+              icon: const Icon(Icons.info_outline),
             ),
           ),
         ],
@@ -469,20 +510,9 @@ class _SafetyNote extends StatelessWidget {
 
     final String message;
     if (plan.isLoss && plan.dailyDelta == 0) {
-      message =
-          'Your estimated burn is already close to the safe minimum, so '
-          'FitGo cannot create a safe deficit. Add activity or talk to a '
-          'health professional.';
+      message = 'This date requires more than your estimated maintenance. The calculated daily intake is negative, so this target cannot be reached by this date through calorie intake alone.';
     } else if (plan.requestedDateTooAggressive) {
-      final limit = plan.isLoss
-          ? GoalPlan.maxDailyDeficit
-          : GoalPlan.maxDailySurplus;
-      message =
-          'Your target date stays yours to keep. FitGo will not suggest more '
-          'than $limit kcal/day of ${plan.isLoss ? 'deficit' : 'surplus'}'
-          '${plan.isLoss ? ' or an intake below ${GoalPlan.minDailyCalories} kcal/day' : ''}, '
-          'so the saved plan follows a safer pace. The earliest safe date is '
-          '${DateFormat('d MMM yyyy').format(plan.earliestSafeDate)}.';
+      message = 'This date requires a negative daily calorie intake. You can keep and save the goal, but the target date is mathematically unreachable through calorie intake alone.';
     } else if (plan.isMaintain) {
       message =
           'Your target matches your current weight. FitGo will keep your '

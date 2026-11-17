@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -24,10 +23,9 @@ import '../ui/components/fitgo_section_header.dart';
 import '../ui/components/fitgo_sync_status_pill.dart';
 import '../ui/haptics.dart';
 import '../ui/profile/ai_settings_sheet.dart';
+import '../ui/profile/app_update_tile.dart';
 import '../ui/profile/goal_planner_sheet.dart';
 import '../ui/theme/fitgo_tokens.dart';
-
-const _appVersion = '3.0.0 (3)';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -262,74 +260,12 @@ class _ProfileBody extends ConsumerWidget {
         const _AccountBackupCard(),
         const SizedBox(height: FitGoSpacing.xl),
         const FitGoSectionHeader(
-          title: 'Help & Privacy',
-          subtitle: 'How your data is handled.',
+          title: 'About',
+          subtitle: 'Version and system updates.',
         ),
-        _SettingsGroup(
+        const _SettingsGroup(
           children: [
-            FitGoListRow(
-              leadingIcon: Icons.sync_rounded,
-              title: 'How sync works',
-              onTap: () => _showInfoDialog(
-                context,
-                title: 'How sync works',
-                body:
-                    'FitGo saves every change on this device first. When you '
-                    'are signed in, changes are queued and uploaded to your '
-                    'private cloud backup. A cloud refresh never overwrites a '
-                    'change that is still waiting to upload. Guest profiles '
-                    'stay on this device until you choose to import them.',
-              ),
-            ),
-            FitGoListRow(
-              leadingIcon: Icons.privacy_tip_outlined,
-              title: 'Privacy & your data',
-              onTap: () => _showInfoDialog(
-                context,
-                title: 'Privacy & your data',
-                body:
-                    'Food, fasting, water, activity, sleep, and weight logs '
-                    'are stored on this device. Signed-in backups are stored '
-                    'in your private Supabase account. FitGo does not sell '
-                    'your data or use it for advertising. Health data leaves '
-                    'the app only when you choose the optional AI coach: your '
-                    'FitGo snapshot and chat messages go directly to Google '
-                    'with your own Gemini key. FitGo never receives that key '
-                    'or those prompts.',
-                url: 'https://fitgo.app/privacy',
-              ),
-            ),
-            FitGoListRow(
-              leadingIcon: Icons.description_outlined,
-              title: 'Terms of use',
-              onTap: () => _showInfoDialog(
-                context,
-                title: 'Terms of use',
-                body:
-                    'FitGo is a personal tracking tool, not medical advice. '
-                    'Use it alongside professional guidance and do not misuse '
-                    'the service or upload unlawful content.',
-                url: 'https://fitgo.app/terms',
-              ),
-            ),
-            FitGoListRow(
-              leadingIcon: Icons.help_outline_rounded,
-              title: 'Support',
-              onTap: () => _showInfoDialog(
-                context,
-                title: 'Support',
-                body:
-                    'Help articles and contact details are published at the '
-                    'support page. Open the address below in your browser.',
-                url: 'https://fitgo.app/support',
-              ),
-            ),
-            const FitGoListRow(
-              leadingIcon: Icons.info_outline_rounded,
-              title: 'App version',
-              trailingText: _appVersion,
-              showChevron: false,
-            ),
+            AppUpdateTile(),
           ],
         ),
         const SizedBox(height: FitGoSpacing.xl),
@@ -700,58 +636,7 @@ class _ProfileBody extends ConsumerWidget {
     }
   }
 
-  void _showInfoDialog(
-    BuildContext context, {
-    required String title,
-    required String body,
-    String? url,
-  }) {
-    final messenger = ScaffoldMessenger.of(context);
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(title),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(body),
-              if (url != null) ...[
-                const SizedBox(height: FitGoSpacing.md),
-                SelectableText(
-                  url,
-                  style: Theme.of(dialogContext).textTheme.bodyMedium?.copyWith(
-                    color: dialogContext.tokens.emberDeep,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        actions: [
-          if (url != null)
-            TextButton.icon(
-              onPressed: () async {
-                await Clipboard.setData(ClipboardData(text: url));
-                if (!dialogContext.mounted) return;
-                Navigator.pop(dialogContext);
-                messenger.showSnackBar(
-                  const SnackBar(content: Text('Link copied')),
-                );
-              },
-              icon: const Icon(Icons.copy_rounded, size: 18),
-              label: const Text('Copy link'),
-            ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
+
 }
 
 class _ProfileHeader extends ConsumerWidget {

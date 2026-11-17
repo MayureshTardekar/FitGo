@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/weight_provider.dart';
 
 class WeightChart extends ConsumerWidget {
-  const WeightChart({super.key});
+  const WeightChart({super.key, this.height = 240});
+
+  final double height;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -14,7 +16,7 @@ class WeightChart extends ConsumerWidget {
 
     if (entries.isEmpty) {
       return SizedBox(
-        height: 200,
+        height: height,
         child: Center(
           child: Text(
             'No weight data yet.\nLog your weight to see the chart!',
@@ -34,9 +36,13 @@ class WeightChart extends ConsumerWidget {
     final weights = entries.map((e) => e.weight).toList();
     final minY = (weights.reduce((a, b) => a < b ? a : b) - 2).floorToDouble();
     final maxY = (weights.reduce((a, b) => a > b ? a : b) + 2).ceilToDouble();
+    final yInterval = _axisInterval(maxY - minY);
+    final xInterval = entries.length <= 4
+        ? 1.0
+        : (entries.length / 4).ceilToDouble();
 
     return SizedBox(
-      height: 200,
+      height: height,
       child: LineChart(
         LineChartData(
           minY: minY,
@@ -44,7 +50,7 @@ class WeightChart extends ConsumerWidget {
           gridData: FlGridData(
             show: true,
             drawVerticalLine: false,
-            horizontalInterval: 2,
+            horizontalInterval: yInterval,
             getDrawingHorizontalLine: (value) => FlLine(
               color: colorScheme.outlineVariant.withAlpha(80),
               strokeWidth: 1,
@@ -54,8 +60,8 @@ class WeightChart extends ConsumerWidget {
             leftTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 40,
-                interval: 2,
+                reservedSize: 38,
+                interval: yInterval,
                 getTitlesWidget: (value, meta) => Text(
                   '${value.toInt()}',
                   style: TextStyle(
@@ -68,13 +74,12 @@ class WeightChart extends ConsumerWidget {
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                interval: (entries.length > 7)
-                    ? (entries.length / 5).ceil().toDouble()
-                    : 1,
+                reservedSize: 34,
+                interval: xInterval,
                 getTitlesWidget: (value, meta) {
-                  final index = value.toInt();
+                  final index = value.round();
                   if (index < 0 || index >= entries.length) {
-                    return const SizedBox();
+                    return const SizedBox.shrink();
                   }
                   final date = entries[index].dateKey;
                   return Padding(
@@ -136,6 +141,15 @@ class WeightChart extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+
+  double _axisInterval(double range) {
+    const intervals = <double>[0.5, 1, 2, 5, 10, 20, 25, 50, 100, 200];
+    final target = range / 4;
+    return intervals.firstWhere(
+      (interval) => interval >= target,
+      orElse: () => target.ceilToDouble(),
     );
   }
 }

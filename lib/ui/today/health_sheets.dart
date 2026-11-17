@@ -374,6 +374,9 @@ class WeightSheet extends ConsumerWidget {
     final units = ref.watch(unitSystemProvider);
     final theme = Theme.of(context);
     final tokens = context.tokens;
+    final chartHeight = (MediaQuery.sizeOf(context).height * 0.34)
+        .clamp(240.0, 320.0)
+        .toDouble();
     final latest = entries.isNotEmpty
         ? units.formatWeight(entries.last.weight)
         : 'No weight logged';
@@ -384,15 +387,17 @@ class WeightSheet extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text('Latest', style: theme.textTheme.labelLarge?.copyWith(color: tokens.textSecondary, fontWeight: FontWeight.w600)),
+          const SizedBox(height: FitGoSpacing.xxs),
           Text(
             latest,
-            style: theme.textTheme.headlineLarge?.copyWith(
+            style: theme.textTheme.displaySmall?.copyWith(
               color: tokens.textPrimary,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: FitGoSpacing.md),
-          const WeightChart(),
+          WeightChart(height: chartHeight),
           const SizedBox(height: FitGoSpacing.md),
           SizedBox(
             width: double.infinity,

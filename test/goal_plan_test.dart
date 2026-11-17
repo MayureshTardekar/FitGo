@@ -23,7 +23,7 @@ void main() {
     expect(plan.requestedDateTooAggressive, isFalse);
   });
 
-  test('an aggressive loss date is capped at a safe deficit', () {
+  test('an aggressive loss date keeps the raw calculated intake', () {
     final plan = GoalPlan.calculate(
       currentWeightKg: 70,
       targetWeightKg: 60,
@@ -32,13 +32,12 @@ void main() {
       today: today,
     );
 
-    expect(plan.dailyDelta, -GoalPlan.maxDailyDeficit);
-    expect(plan.dailyCalories, 1650);
+    expect(plan.dailyDelta, closeTo(-5500, 1));
+    expect(plan.dailyCalories, closeTo(-3100, 1));
     expect(plan.requestedDateTooAggressive, isTrue);
-    expect(plan.earliestSafeDate, DateTime(2026, 4, 14));
   });
 
-  test('the 1,200 kcal floor tightens a loss plan further', () {
+  test('positive raw intake below former floor remains unchanged', () {
     final plan = GoalPlan.calculate(
       currentWeightKg: 80,
       targetWeightKg: 75,
@@ -47,13 +46,12 @@ void main() {
       today: today,
     );
 
-    expect(plan.dailyDelta, -600);
-    expect(plan.dailyCalories, GoalPlan.minDailyCalories);
-    expect(plan.requestedDateTooAggressive, isTrue);
-    expect(plan.earliestSafeDate, DateTime(2026, 3, 7));
+    expect(plan.dailyDelta, closeTo(-856, 1));
+    expect(plan.dailyCalories, closeTo(944, 1));
+    expect(plan.requestedDateTooAggressive, isFalse);
   });
 
-  test('a gain target is capped at a safe surplus', () {
+  test('a gain target keeps the raw calculated surplus', () {
     final plan = GoalPlan.calculate(
       currentWeightKg: 60,
       targetWeightKg: 65,
@@ -63,10 +61,9 @@ void main() {
     );
 
     expect(plan.isGain, isTrue);
-    expect(plan.dailyDelta, GoalPlan.maxDailySurplus);
-    expect(plan.dailyCalories, 2900);
-    expect(plan.requestedDateTooAggressive, isTrue);
-    expect(plan.earliestSafeDate, DateTime(2026, 3, 19));
+    expect(plan.dailyDelta, closeTo(550, 1));
+    expect(plan.dailyCalories, closeTo(2950, 1));
+    expect(plan.requestedDateTooAggressive, isFalse);
   });
 
   test('matching the current weight produces a maintenance plan', () {
