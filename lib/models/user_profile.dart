@@ -1,5 +1,7 @@
 import 'package:hive/hive.dart';
 
+import 'goal_plan.dart';
+
 part 'user_profile.g.dart';
 
 @HiveType(typeId: 2)
@@ -34,6 +36,12 @@ class UserProfile extends HiveObject {
   @HiveField(9, defaultValue: 'light')
   String activityLevel; // 'sedentary', 'light', 'moderate', 'active'
 
+  @HiveField(10, defaultValue: 0)
+  double targetWeightKg;
+
+  @HiveField(11, defaultValue: '')
+  String goalTargetDate; // 'yyyy-MM-dd'
+
   UserProfile({
     required this.weightKg,
     required this.heightCm,
@@ -45,6 +53,8 @@ class UserProfile extends HiveObject {
     this.weightGoal = 'maintain',
     this.dobString = '',
     this.activityLevel = 'light',
+    this.targetWeightKg = 0,
+    this.goalTargetDate = '',
   }) : calorieGoal =
            calorieGoal ??
            _calcCalorieGoal(
@@ -109,9 +119,9 @@ class UserProfile extends HiveObject {
     return (bmr * activityMultiplier(activityLevel)).round();
   }
 
-  /// ~35ml per kg body weight
+  /// ~35ml per kg body weight, never below the hydration floor.
   static int _calcWaterGoal(double weight) {
-    return ((weight * 35) / 250).round() * 250;
+    return GoalPlan.waterGoalMlFor(weight);
   }
 
   /// Weekly calorie goal based on weight goal
@@ -161,6 +171,24 @@ class UserProfile extends HiveObject {
   /// Surplus or deficit per day vs TDEE
   int get dailySurplusDeficit => dailyQuota - tdee;
 
+  DateTime? get goalTargetDateValue => DateTime.tryParse(goalTargetDate);
+
+  bool get hasGoalPlan => targetWeightKg > 0 && goalTargetDateValue != null;
+
+  /// The saved target date converted into daily targets, or null when no
+  /// target weight/date has been chosen yet.
+  GoalPlan? get goalPlan {
+    final date = goalTargetDateValue;
+    if (targetWeightKg <= 0 || date == null) return null;
+    return GoalPlan.calculate(
+      currentWeightKg: weightKg,
+      targetWeightKg: targetWeightKg,
+      targetDate: date,
+      tdee: tdee,
+      today: DateTime.now(),
+    );
+  }
+
   /// Detached copy, safe to store in a different Hive box or account cache.
   UserProfile copy() => UserProfile(
     weightKg: weightKg,
@@ -173,5 +201,7 @@ class UserProfile extends HiveObject {
     weightGoal: weightGoal,
     dobString: dobString,
     activityLevel: activityLevel,
+    targetWeightKg: targetWeightKg,
+    goalTargetDate: goalTargetDate,
   );
 }

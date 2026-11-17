@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'activity_provider.dart';
+import 'ai_provider.dart';
 import 'analytics_provider.dart';
 import 'calorie_provider.dart';
 import 'meal_library_provider.dart';
@@ -36,4 +37,9 @@ void refreshLocalDataProviders(WidgetRef ref) {
   ref.invalidate(unitSystemProvider);
   ref.invalidate(dashboardAnalyticsProvider);
   ref.invalidate(guestDataAvailableProvider);
+  // AI keys and chat history are scoped to the active account. Invalidating
+  // both providers prevents the previous account's conversation or usage from
+  // remaining in memory after a sign-in, sign-out, or guest import.
+  ref.invalidate(aiSettingsProvider);
+  ref.invalidate(aiChatProvider);
 }

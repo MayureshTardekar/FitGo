@@ -349,6 +349,11 @@ class LocalStorage {
     await _settingsBox.put(key, value);
   }
 
+  /// Removes an account-local setting without touching the cloud outbox.
+  Future<void> deleteLocalSetting(String key) async {
+    await _settingsBox.delete(key);
+  }
+
   // --- Cloud import and outbox ---
 
   /// Imports cloud records without clobbering unsynced local edits.

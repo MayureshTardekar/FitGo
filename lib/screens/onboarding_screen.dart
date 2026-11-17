@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../core/units.dart';
+import '../models/goal_plan.dart';
 import '../models/user_profile.dart';
 import '../providers/profile_provider.dart';
 import '../providers/storage_provider.dart';
@@ -102,9 +103,20 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     };
   }
 
-  int get _suggestedWeekly {
+  int get _suggestedDaily {
     if (_tdee <= 0) return 0;
-    return ((_tdee + _dailyDelta) * 7).round();
+    final raw = _tdee + _dailyDelta;
+    // Never recommend a loss budget below the safety floor. A custom budget is
+    // still the user's call and is flagged separately in the preview.
+    if (_goal == 'lose' && raw < GoalPlan.minDailyCalories) {
+      return GoalPlan.minDailyCalories;
+    }
+    return raw;
+  }
+
+  int get _suggestedWeekly {
+    if (_suggestedDaily <= 0) return 0;
+    return _suggestedDaily * 7;
   }
 
   int get _weeklyTarget {
@@ -118,8 +130,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   int get _dailyTarget => _weeklyTarget <= 0 ? 0 : (_weeklyTarget / 7).round();
 
   int get _waterGoalMl {
-    if (_weightKg <= 0) return 2000;
-    return ((_weightKg * 35) / 250).round() * 250;
+    if (_weightKg <= 0) return GoalPlan.minDailyWaterMl;
+    return GoalPlan.waterGoalMlFor(_weightKg);
   }
 
   bool get _aboutValid {
@@ -925,7 +937,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ),
           const SizedBox(height: FitGoSpacing.xs),
           Text(
-            '${_dailyDelta.abs()} kcal/day '
+            '${(_suggestedDaily - _tdee).abs()} kcal/day '
             '${_goal == 'lose' ? 'deficit' : 'surplus'}',
             style: theme.textTheme.bodySmall?.copyWith(
               color: tokens.textSecondary,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/profile_provider.dart';
+import '../screens/ai_chat_screen.dart';
 import '../screens/analytics_screen.dart';
 import '../screens/auth_screen.dart';
 import '../screens/home_screen.dart';
@@ -135,6 +136,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             state.uri.queryParameters['date'] ?? '',
           ),
         ),
+      ),
+      GoRoute(
+        path: '/ai-chat',
+        builder: (context, state) => const AiChatScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

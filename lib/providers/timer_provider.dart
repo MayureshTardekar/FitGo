@@ -96,6 +96,7 @@ class FastingNotifier extends Notifier<FastingState>
 
       // Auto-stop if fast has been running for > 48 hours (user forgot)
       if (elapsed.inHours > 48) {
+        _cancelNativeReminder();
         _clearFasting(epoch.dateKey);
         return const FastingState();
       }
@@ -331,6 +332,7 @@ class FastingNotifier extends Notifier<FastingState>
       await NotificationService.scheduleFastingReminder(
         intervalMinutes: value.reminderInterval.inMinutes,
         untilEpoch: untilEpoch,
+        lastReminderEpoch: value.lastReminderEpoch,
       );
 
       if (showConfirmation) {
@@ -426,6 +428,10 @@ class FastingNotifier extends Notifier<FastingState>
     if (state == AppLifecycleState.resumed && this.state.isFasting) {
       _recalculate();
       _startTicker();
+      // Re-arm the series after a permission change or when the OS dropped
+      // alarms while the app was stopped. The recalculated anchor prevents a
+      // reminder from firing again if one was already handled in-app.
+      _scheduleNativeReminder();
     } else if (state == AppLifecycleState.paused) {
       _ticker?.cancel();
     }

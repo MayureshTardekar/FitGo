@@ -6,7 +6,9 @@
         android:usesCleartextTraffic="true"
         android:label="FitGo"
         android:name="${applicationName}"
-        android:icon="@mipmap/launcher_icon">
+        android:icon="@mipmap/launcher_icon"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -48,19 +50,6 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-        <receiver
-            android:name=".CalorieAlertReceiver"
-            android:exported="false" />
-        <receiver
-            android:name=".FastingReminderReceiver"
-            android:exported="false" />
-        <receiver
-            android:name=".BootReceiver"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED"/>
-            </intent-filter>
-        </receiver>
         <!-- flutter_local_notifications: deliver scheduled notifications and
              restore them after a reboot or app update. -->
         <receiver

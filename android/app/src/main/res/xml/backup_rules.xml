@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Keep the Gemini key's encrypted SharedPreferences out of Android backups.
+     The key-encryption key lives in the Android Keystore and is not backed up,
+     so restoring this file would make flutter_secure_storage fail to decrypt. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="FlutterSecureStorage"/>
+</full-backup-content>

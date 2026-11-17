@@ -110,6 +110,36 @@ void main() {
         isNull,
       );
     });
+
+    test('AI chat requires a profile like every other app screen', () {
+      expect(
+        resolveFitGoRedirect(
+          loggedIn: false,
+          hasProfile: false,
+          location: '/ai-chat',
+          isRedoSetup: false,
+        ),
+        '/auth',
+      );
+      expect(
+        resolveFitGoRedirect(
+          loggedIn: true,
+          hasProfile: false,
+          location: '/ai-chat',
+          isRedoSetup: false,
+        ),
+        '/onboarding',
+      );
+      expect(
+        resolveFitGoRedirect(
+          loggedIn: false,
+          hasProfile: true,
+          location: '/ai-chat',
+          isRedoSetup: false,
+        ),
+        isNull,
+      );
+    });
   });
 
   group('notificationTarget', () {

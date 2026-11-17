@@ -116,7 +116,7 @@ class SupabaseService {
     final uid = userId;
     if (uid == null) return;
 
-    await client.from('user_profiles').upsert({
+    final payload = {
       'id': uid,
       'weight_kg': profile.weightKg,
       'height_cm': profile.heightCm,
@@ -127,7 +127,21 @@ class SupabaseService {
       'weekly_calorie_goal': profile.weeklyCalorieGoal,
       'weight_goal': profile.weightGoal,
       'dob_string': profile.dobString,
-    });
+      'activity_level': profile.activityLevel,
+      'target_weight_kg': profile.targetWeightKg,
+      'goal_target_date': profile.goalTargetDate,
+    };
+
+    try {
+      await client.from('user_profiles').upsert(payload);
+    } catch (_) {
+      // Older deployments may not have the goal-plan columns yet.
+      final legacyPayload = Map<String, dynamic>.of(payload)
+        ..remove('activity_level')
+        ..remove('target_weight_kg')
+        ..remove('goal_target_date');
+      await client.from('user_profiles').upsert(legacyPayload);
+    }
   }
 
   static Future<UserProfile?> fetchProfile() async {
@@ -152,6 +166,9 @@ class SupabaseService {
       weeklyCalorieGoal: data['weekly_calorie_goal'] as int?,
       weightGoal: data['weight_goal'] as String? ?? 'maintain',
       dobString: data['dob_string'] as String? ?? '',
+      activityLevel: data['activity_level'] as String? ?? 'light',
+      targetWeightKg: _doubleValue(data['target_weight_kg']) ?? 0,
+      goalTargetDate: data['goal_target_date'] as String? ?? '',
     );
   }
 

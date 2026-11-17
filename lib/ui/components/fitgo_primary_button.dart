@@ -43,7 +43,7 @@ class FitGoPrimaryButton extends StatelessWidget {
                 Icon(icon, size: 20),
                 const SizedBox(width: FitGoSpacing.xs),
               ],
-              Text(label),
+              Flexible(child: Text(label, textAlign: TextAlign.center)),
             ],
           );
 

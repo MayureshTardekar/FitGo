@@ -1,43 +1,31 @@
 import 'package:flutter/material.dart';
 
-import '../theme/fitgo_tokens.dart';
-
-/// Simple FitGo brand mark used in navigation rails and headers.
+/// FitGo brand mark used in navigation rails, headers, and loading states.
 class FitGoMark extends StatelessWidget {
-  const FitGoMark({super.key, this.size = 40, this.showBackground = true});
+  const FitGoMark({super.key, this.size = 40});
+
+  static const asset = 'assets/images/logo.png';
 
   final double size;
-  final bool showBackground;
 
   @override
   Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    final icon = Icon(
-      Icons.local_fire_department_rounded,
-      size: size * 0.58,
-      color: Colors.white,
-    );
+    final cacheWidth = (size * MediaQuery.devicePixelRatioOf(context)).round();
 
-    if (!showBackground) {
-      return Icon(
-        Icons.local_fire_department_rounded,
-        size: size,
-        color: tokens.ember,
-      );
-    }
-
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [tokens.ember, tokens.amber],
-        ),
+    return Semantics(
+      label: 'FitGo',
+      image: true,
+      child: ClipRRect(
         borderRadius: BorderRadius.circular(size * 0.3),
+        child: Image.asset(
+          asset,
+          width: size,
+          height: size,
+          cacheWidth: cacheWidth,
+          fit: BoxFit.cover,
+          filterQuality: FilterQuality.high,
+        ),
       ),
-      child: Center(child: icon),
     );
   }
 }

@@ -27,13 +27,15 @@ class UserProfileAdapter extends TypeAdapter<UserProfile> {
       weightGoal: fields[7] == null ? 'maintain' : fields[7] as String,
       dobString: fields[8] == null ? '' : fields[8] as String,
       activityLevel: fields[9] == null ? 'light' : fields[9] as String,
+      targetWeightKg: fields[10] == null ? 0 : fields[10] as double,
+      goalTargetDate: fields[11] == null ? '' : fields[11] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, UserProfile obj) {
     writer
-      ..writeByte(10)
+      ..writeByte(12)
       ..writeByte(0)
       ..write(obj.weightKg)
       ..writeByte(1)
@@ -53,7 +55,11 @@ class UserProfileAdapter extends TypeAdapter<UserProfile> {
       ..writeByte(8)
       ..write(obj.dobString)
       ..writeByte(9)
-      ..write(obj.activityLevel);
+      ..write(obj.activityLevel)
+      ..writeByte(10)
+      ..write(obj.targetWeightKg)
+      ..writeByte(11)
+      ..write(obj.goalTargetDate);
   }
 
   @override

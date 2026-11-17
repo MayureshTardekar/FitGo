@@ -16,7 +16,7 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace = "com.fitgo.fitgo"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
@@ -59,8 +59,10 @@ android {
 
     packaging {
         jniLibs {
+            // Compress native libraries so the download stays small. Release
+            // builds must strip debug symbols; keeping them inflates each
+            // Flutter engine binary to ~140 MB.
             useLegacyPackaging = true
-            keepDebugSymbols.add("**/*.so")
         }
     }
 }

@@ -111,21 +111,41 @@ class MonthlyCalorieAlertNotifier extends Notifier<MonthlyCalorieAlertState> {
     }
 
     state = _loadState();
-    await _syncNativeAlert(state, allowImmediate: true);
+    await _syncNativeAlert(
+      state,
+      allowImmediate: true,
+      requestPermission: true,
+    );
   }
 
   Future<void> _syncNativeAlert(
     MonthlyCalorieAlertState value, {
     bool allowImmediate = true,
+    bool requestPermission = false,
   }) async {
     if (!NotificationService.isSupported) return;
 
-    if (!value.enabled || !value.isInWarningZone) {
+    if (!value.enabled) {
       await NotificationService.cancelMonthlyCalorieAlert();
       return;
     }
 
-    await NotificationService.requestPermission();
+    // Permission is requested only from an explicit settings change. A normal
+    // provider rebuild must never trigger an unexpected system prompt.
+    if (requestPermission) {
+      await NotificationService.requestPermission();
+    }
+
+    if (!value.isInWarningZone) {
+      await NotificationService.cancelMonthlyCalorieAlert();
+      return;
+    }
+
+    if (!await NotificationService.notificationsEnabled()) {
+      await NotificationService.cancelMonthlyCalorieAlert();
+      return;
+    }
+
     final title = value.isOverLimit
         ? 'Monthly calorie limit crossed'
         : 'Monthly calorie warning';

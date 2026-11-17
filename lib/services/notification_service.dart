@@ -6,6 +6,8 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
+import 'notification_schedule.dart';
+
 /// Cross-platform local notification service.
 ///
 /// Android and iOS are both supported through `flutter_local_notifications`,
@@ -27,13 +29,14 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   static bool _initialised = false;
-  static bool _initialising = false;
+  static Future<void>? _initFuture;
   static String? _pendingLaunchPayload;
   static NotificationActionEvent? _pendingLaunchAction;
 
   static const _monthlyAlertId = 1001;
   static const _fastingReminderIdStart = 2000;
-  static const _fastingReminderIdEnd = 2024;
+  static const _fastingReminderIdEnd = 2060;
+  static const _maxFastingReminders = 60;
 
   static const _addWaterActionId = 'add_water';
   static const _endFastActionId = 'end_fast';
@@ -48,11 +51,11 @@ class NotificationService {
   );
 
   static const _fastingChannel = AndroidNotificationDetails(
-    'fasting_reminders',
+    'fasting_reminders_v2',
     'Fasting reminders',
     channelDescription: 'Hydration reminders during a fast',
-    importance: Importance.defaultImportance,
-    priority: Priority.defaultPriority,
+    importance: Importance.high,
+    priority: Priority.high,
     actions: [
       AndroidNotificationAction(
         _addWaterActionId,
@@ -135,16 +138,18 @@ class NotificationService {
 
   /// Initialises timezone data and the notifications plugin.
   ///
-  /// Safe to call more than once; concurrent calls share the same future
-  /// through [_initialising].
-  static Future<void> init() async {
-    if (_initialised || _initialising) return;
+  /// Safe to call more than once; concurrent callers await the same future.
+  static Future<void> init() {
+    if (_initialised) return Future<void>.value();
+    return _initFuture ??= _initialise();
+  }
+
+  static Future<void> _initialise() async {
     if (!isSupported) {
       _initialised = true;
       return;
     }
 
-    _initialising = true;
     try {
       tzdata.initializeTimeZones();
       try {
@@ -155,7 +160,7 @@ class NotificationService {
         tz.setLocalLocation(tz.UTC);
       }
 
-      const android = AndroidInitializationSettings('@mipmap/launcher_icon');
+      const android = AndroidInitializationSettings('ic_stat_fitgo');
       final darwin = DarwinInitializationSettings(
         requestAlertPermission: false,
         requestBadgePermission: false,
@@ -196,13 +201,13 @@ class NotificationService {
     } catch (error) {
       debugPrint('NotificationService.init failed: $error');
     } finally {
-      _initialising = false;
+      _initFuture = null;
     }
   }
 
   static Future<bool> requestPermission() async {
     await init();
-    if (!isSupported) return false;
+    if (!_initialised || !isSupported) return false;
 
     try {
       switch (defaultTargetPlatform) {
@@ -233,6 +238,36 @@ class NotificationService {
     }
   }
 
+  /// Whether the user currently allows FitGo to show notifications.
+  static Future<bool> notificationsEnabled() async {
+    await init();
+    if (!_initialised || !isSupported) return false;
+
+    try {
+      switch (defaultTargetPlatform) {
+        case TargetPlatform.android:
+          final android = _plugin
+              .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin
+              >();
+          return await android?.areNotificationsEnabled() ?? false;
+        case TargetPlatform.iOS:
+        case TargetPlatform.macOS:
+          final ios = _plugin
+              .resolvePlatformSpecificImplementation<
+                IOSFlutterLocalNotificationsPlugin
+              >();
+          final permissions = await ios?.checkPermissions();
+          return permissions?.isEnabled ?? false;
+        default:
+          return false;
+      }
+    } catch (error) {
+      debugPrint('NotificationService.notificationsEnabled failed: $error');
+      return false;
+    }
+  }
+
   static Future<void> scheduleMonthlyCalorieAlert({
     required String title,
     required String message,
@@ -240,35 +275,29 @@ class NotificationService {
     required int minute,
   }) async {
     await init();
-    if (!isSupported) return;
+    if (!_initialised || !isSupported) return;
 
     try {
-      final now = tz.TZDateTime.now(tz.local);
-      var when = tz.TZDateTime(
-        tz.local,
-        now.year,
-        now.month,
-        now.day,
-        hour,
-        minute,
-      );
-      if (!when.isAfter(now)) {
-        when = when.add(const Duration(days: 1));
-      }
+      // Build the wall-clock time from the device clock first, then convert
+      // that instant. This keeps the alert at the chosen local time even if
+      // the timezone plugin falls back to UTC.
+      final when = NotificationSchedule.nextDaily(DateTime.now(), hour, minute);
 
       await _plugin.zonedSchedule(
         id: _monthlyAlertId,
         title: title,
         body: message,
-        scheduledDate: when,
+        scheduledDate: tz.TZDateTime.from(when, tz.local),
         notificationDetails: const NotificationDetails(
           android: _calorieGuardChannel,
           iOS: _darwinDetails,
           macOS: _darwinDetails,
         ),
-        // Inexact scheduling avoids the Android 12+ exact-alarm permission.
+        // One-shot on purpose: a repeating alert would keep using the totals
+        // captured when it was first scheduled, including after month reset.
+        // The provider reschedules the next alert when the app opens or data
+        // changes.
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        matchDateTimeComponents: DateTimeComponents.time,
         payload: 'fitgo://profile?section=notifications',
       );
     } catch (error) {
@@ -295,7 +324,7 @@ class NotificationService {
 
   static Future<void> cancelMonthlyCalorieAlert() async {
     await init();
-    if (!isSupported) return;
+    if (!_initialised || !isSupported) return;
     try {
       await _plugin.cancel(id: _monthlyAlertId);
     } catch (error) {
@@ -306,25 +335,32 @@ class NotificationService {
   static Future<void> scheduleFastingReminder({
     required int intervalMinutes,
     required int untilEpoch,
+    int? lastReminderEpoch,
     String title = 'Drink water',
     String message = 'Stay zero-calorie until your fast ends.',
   }) async {
     await init();
-    if (!isSupported) return;
+    if (!_initialised || !isSupported) return;
 
     await cancelFastingReminder();
 
     final safeInterval = intervalMinutes.clamp(15, 24 * 60);
     final end = DateTime.fromMillisecondsSinceEpoch(untilEpoch);
-    var next = DateTime.now().add(Duration(minutes: safeInterval));
+    final lastReminder = lastReminderEpoch == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(lastReminderEpoch);
+    final times = NotificationSchedule.fastingReminders(
+      now: DateTime.now(),
+      end: end,
+      interval: Duration(minutes: safeInterval),
+      lastReminder: lastReminder,
+      maxCount: _maxFastingReminders,
+    );
 
     var id = _fastingReminderIdStart;
     try {
-      while (next.isBefore(end) && id < _fastingReminderIdEnd) {
-        // Never hand the plugin a date that is already in the past.
-        final fireAt = next.isAfter(DateTime.now())
-            ? next
-            : DateTime.now().add(const Duration(minutes: 1));
+      for (final fireAt in times) {
+        if (id >= _fastingReminderIdEnd) break;
         await _plugin.zonedSchedule(
           id: id++,
           title: title,
@@ -338,7 +374,6 @@ class NotificationService {
           androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
           payload: 'fitgo://fasting',
         );
-        next = next.add(Duration(minutes: safeInterval));
       }
     } catch (error) {
       debugPrint('scheduleFastingReminder failed: $error');
@@ -364,7 +399,7 @@ class NotificationService {
 
   static Future<void> cancelFastingReminder() async {
     await init();
-    if (!isSupported) return;
+    if (!_initialised || !isSupported) return;
     try {
       for (var id = _fastingReminderIdStart; id < _fastingReminderIdEnd; id++) {
         await _plugin.cancel(id: id);
@@ -382,7 +417,7 @@ class NotificationService {
     required String payload,
   }) async {
     await init();
-    if (!isSupported) return;
+    if (!_initialised || !isSupported) return;
     try {
       await _plugin.show(
         id: id,

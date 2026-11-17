@@ -21,6 +21,8 @@ class ProfileNotifier extends Notifier<UserProfile?> {
     int? waterGoalMl,
     int? weeklyCalorieGoal,
     String? weightGoal,
+    double? targetWeightKg,
+    String? goalTargetDate,
   }) async {
     if (state == null) return;
     final profile = state!;
@@ -30,6 +32,8 @@ class ProfileNotifier extends Notifier<UserProfile?> {
       profile.weeklyCalorieGoal = weeklyCalorieGoal;
     }
     if (weightGoal != null) profile.weightGoal = weightGoal;
+    if (targetWeightKg != null) profile.targetWeightKg = targetWeightKg;
+    if (goalTargetDate != null) profile.goalTargetDate = goalTargetDate;
     final storage = ref.read(localStorageProvider);
     await storage.saveProfile(profile);
     state = null; // force rebuild

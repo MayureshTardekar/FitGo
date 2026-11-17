@@ -1,5 +1,7 @@
 import 'package:fitgo/screens/auth_screen.dart';
 import 'package:fitgo/ui/components/fitgo_card.dart';
+import 'package:fitgo/ui/components/fitgo_loading.dart';
+import 'package:fitgo/ui/components/fitgo_mark.dart';
 import 'package:fitgo/ui/components/fitgo_ring.dart';
 import 'package:fitgo/ui/theme/fitgo_theme.dart';
 import 'package:fitgo/ui/theme/fitgo_tokens.dart';
@@ -50,6 +52,50 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('62%'), findsOneWidget);
+  });
+
+  testWidgets('Brand mark uses the shared logo asset', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: FitGoTheme.light,
+        home: const Scaffold(body: Center(child: FitGoMark(size: 64))),
+      ),
+    );
+
+    final image = tester.widget<Image>(find.byType(Image));
+    final provider = image.image;
+    final asset = provider is ResizeImage
+        ? provider.imageProvider as AssetImage
+        : provider as AssetImage;
+    expect(asset.assetName, FitGoMark.asset);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is Semantics && widget.properties.label == 'FitGo',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Branded loading combines the mark with a spinner', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: FitGoTheme.light,
+        home: const Scaffold(body: Center(child: FitGoLoading())),
+      ),
+    );
+
+    expect(find.byType(FitGoMark), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is Semantics && widget.properties.label == 'Loading',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('Auth screen reveals the email form on demand', (

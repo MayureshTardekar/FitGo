@@ -3,14 +3,20 @@
 > **Status:** In progress on `feature/ios-foundation`  
 > **Current app:** FitGo `3.0.0+3` — Flutter 3.41.7 / Dart 3.11.5  
 > **Target:** A polished, adaptive FitGo that feels at home on iPhone and iPad, is App Store-ready, and keeps Android working.  
-> **Last updated:** 14 November 2026  
-> **Next milestone:** a TestFlight install on a real iPhone and iPad. Code-side Phase 0, Phase 1, and the v3 Today/Trends/Profile rebuild are in place; macOS signing, device verification, account deletion, and published legal URLs remain external blockers.
+> **Last updated:** 17 November 2026
+> **Next milestone:** a TestFlight install on a real iPhone and iPad. Code-side Phase 0, Phase 1, the v3 Today/Trends/Profile rebuild, and the optional AI coach are in place; macOS signing, device verification, account deletion, published legal URLs, and store data-safety answers remain external blockers.
 >
-> **v3 UI snapshot (14 Nov 2026):** Today is a quick logbook with one calorie hero, independent flat rows, one meal sheet, one-tap water with Undo, and a folded Health section. Trends opens on this week with one intake-vs-budget chart, one plain-language insight, lazy history, and `/past-day?date=` deep links. Profile is grouped into **Goals**, **Preferences**, **Account & Backup**, and **Help & Privacy**, with last sync, pending-change count, and retry together.
+> **v3 UI snapshot (16 Nov 2026):** Today is a quick logbook with one calorie hero, independent flat rows, one meal sheet, one-tap water with Undo, and a folded Health section. Trends opens on this week with one intake-vs-budget chart, one plain-language insight, lazy history, and `/past-day?date=` deep links. Profile is grouped into **Goals**, **Preferences**, **Account & Backup**, and **Help & Privacy**, with last sync, pending-change count, and retry together. **Goals → Goal plan** asks for a target weight and date, then sets daily calories and water from a safe deficit/surplus.
+>
+> **Goal planner (16 Nov 2026):** `GoalPlan` converts 7,700 kcal/kg into a daily budget, caps loss at 750 kcal/day and gain at 500 kcal/day, enforces a 1,200 kcal/day floor, and shows the earliest safe date when a deadline is too aggressive. The user’s target date is kept, but the saved calorie target follows the safe pace instead of recommending starvation. Water follows 35 ml/kg rounded to 250 ml with a **1,500 ml/day floor**. Onboarding applies the same suggested calorie floor and water floor, so the first plan is safe too. The plan is stored in Hive fields 10–11, included in Supabase profile sync, and recalculated when weight or height changes.
+>
+> **Notification audit (16 Nov 2026):** Android now uses only the cross-platform `flutter_local_notifications` path; the legacy Kotlin alarm/receiver stack was removed so old reminders cannot duplicate. Fasting series cover the full 36 h preset (60 pending slots), use the white status-bar icon and a high-importance channel, and never schedule a time in the past. The series is re-armed on resume after a permission change or an OS cleanup. The calorie guard is one-shot and re-armed on resume/data changes even when no screen is open, so stale month totals cannot repeat. Permission prompts only happen from explicit user actions, and concurrent initialization now awaits one shared future.
+>
+> **AI coach (17 Nov 2026):** An optional, read-only Gemini coach now lives in **Profile → Preferences → AI coach**. It uses the user’s own free Gemini key, stored per account in platform secure storage (never Hive, Supabase, logs, or a FitGo server) and excluded from Android backup. The first 10 requests of each day alternate between 3.8 Flash and 3.6 Flash, then route automatically to 3.5 Flash Lite (1,500 free requests/day); quota, missing model, overload, network, timeout, and empty-answer failures fall through without user action. FitGo computes the progress facts and on-track status locally; the model receives a compact, PII-free snapshot plus recent chat and is forbidden from changing goals or giving unsafe diet/medical advice. Chat history is local, capped at 40 messages, and deletable.
 >
 > **Latest fixes (14 Nov 2026):** Meal Undo now preserves legacy v2 calories and untracked totals; past-day edits refresh Trends and every derived cache via `LocalStorage.dataRevision`; Today’s header and water row fit 320 pt at 200% text in guest and pending-sync states. Regressions live in `test/provider_undo_test.dart`, `test/past_day_screen_test.dart`, and `test/home_layout_test.dart`.
 >
-> **Verified (14 Nov 2026):** `flutter analyze` clean, all 51 tests pass, and the Android release APK rebuilds at `build/app/outputs/flutter-apk/app-release.apk` (122.6 MB, 14 Nov 2026 12:46). iOS runtime verification still requires macOS and physical devices.
+> **Verified (17 Nov 2026):** `flutter analyze` clean and all **91 tests** pass, including 17 AI routing/context/fallback/isolation/layout/lifecycle tests, 10 goal-planner/hydration tests, 9 notification-scheduling tests, and 2 branding tests. Android release builds pass after dropping retained native debug symbols: universal APK **26.7 MB** (all ABIs, 10:41, SHA-256 `9F95A1B05C3817BDFB26BB367B7BB493BD7EA90DC34E48E2E7FB885A6917618C`), arm64 split **9.8 MB**, and Play AAB **45.3 MB** (per-device download is roughly 10 MB). The previous 123 MB APK was the same app with ~140 MB unstripped `libflutter.so` per ABI. Hosted Supabase migration `20261117110000_initial_schema.sql` was pushed successfully; local and remote migration history match, and the `user_profiles` goal columns plus `weight_entries.updated_at` were verified. The packaged APK exposes `drawable/ic_stat_fitgo`, so the notification icon survives release resource optimization, and secure-storage preferences are excluded from Android backup. The new white-on-orange mark was checked at 40/64/76 px and in the loading state, and the Android 12+ splash theme compiles. iOS runtime verification, a real-key Gemini smoke test, and real-device notification timing still require physical devices. The APK and AAB are debug-signed until `android/key.properties` and a release keystore are supplied.
 
 ---
 
@@ -88,6 +94,7 @@ A solo developer should plan **4–6 months** for the full roadmap. A small team
 - **Fasting timer based on timestamps**, so it survives app kills.
 - **Rich analytics** (consistency score, cumulative trend, heatmap, insights, projection).
 - **Dark/light themes** and a recognisable ember/amber palette.
+- **Optional AI coach** with a user-supplied Gemini key, account-scoped history, and automatic model fallback.
 - **Feature depth**: water, steps, exercise, sleep, weight, macros, monthly calorie guard.
 - **Flutter 3.41 / Dart 3.11** is modern enough for the current plugin ecosystem.
 
@@ -289,7 +296,7 @@ Proposed: **3 tabs + centre quick-log action**.
 - **Trends** — consistency, weekly/monthly/yearly charts, insights, projection, export.
 - **Profile** — account, goals, units, notifications, Health, appearance, privacy, legal.
 - **+ Log** — opens a quick-log sheet: Meal, Water, Weight, Workout, Steps, Sleep, Start/Stop Fast.
-- **Coach** can live inside Today as the “Weekly plan” card in v2.2; promote it to a tab later if it earns it.
+- **AI coach** lives in **Profile → Preferences** as an optional chat with the user’s own Gemini key; there is no Today card or extra tab in 3.0.
 
 Why not four tabs? Three tabs + a central action is easier to scan, leaves room for the quick-log button, and avoids burying Profile. iPad uses a sidebar instead of a bottom bar.
 
@@ -602,7 +609,23 @@ Review the privacy manifests generated by Flutter plugins in `ios/Pods/` after `
 
 ### 4.7 Notifications: recommended cross-platform architecture
 
-Current `NotificationService` uses a method channel named `fitgo/notifications` and returns immediately on iOS because `isSupported` is `Platform.isAndroid`. There are two options.
+> **Implemented (16 Nov 2026):** `NotificationService` now uses
+> `flutter_local_notifications` on Android, iOS, and macOS. It handles
+> permission on explicit user actions, fasting reminder series, the one-shot
+> calorie guard, notification actions (`+250 ml`, `End fast`), cold-start taps,
+> and deep links. The obsolete Kotlin `fitgo/notifications` channel and its
+> receiver/helper files were removed to prevent duplicate alarms from older
+> installs. Scheduling math is unit-tested in
+> `test/notification_schedule_test.dart`.
+>
+> Remaining device checks: Android 13+ permission prompt, Android 12+ battery
+> optimization delay (inexact scheduling may shift by a few minutes), channel
+> settings, reboot rescheduling, cold-start tap, and iOS foreground/background
+> delivery. Exact alarms are intentionally **not** requested; the app uses
+> `inexactAllowWhileIdle` to avoid the Android 14 exact-alarm special access
+> and Play policy burden.
+
+The historical notes below describe the migration that is now complete.
 
 #### Option A (recommended): `flutter_local_notifications`
 
@@ -933,14 +956,30 @@ import UserNotifications
 
 ### 4.8 Launch screen and app icon
 
-Current launch screen is white with a centred `LaunchImage`. On a dark-themed app this produces a bright flash.
+> **Implemented (17 Nov 2026):** FitGo now uses one white-on-orange flame mark
+> everywhere. The canonical asset is `assets/images/logo.png` (1024×1024). It
+> drives the Android/iOS launcher icon, the dark native splash, the in-app
+> `FitGoMark` (auth, onboarding, navigation), and the `FitGoLoading` spinner
+> used for content loading.
+>
+> - Android starts on `#03071E` with the rounded 360 px
+>   `drawable-nodpi/splash_logo.png` centred by both `launch_background.xml`
+>   variants. Android 12+ uses matching `values-v31` / `values-night-v31`
+>   themes so the system splash keeps the dark background and orange icon
+>   instead of falling back to a white window. Both `LaunchTheme` and
+>   `NormalTheme` use `#03071E` on every API level, so Flutter's first frame
+>   cannot expose a white window either.
+> - iOS uses a dark `#03071E` storyboard background with `LaunchImage` at
+>   1x/2x/3x (120 pt). The old white flash is gone.
+> - Launcher icons were regenerated with `flutter_launcher_icons`
+>   (`remove_alpha_ios: true`); the iOS app-icon files are RGB so App Store
+>   validation does not see an alpha channel.
+> - Do not animate the native launch screen; iOS does not allow it. The branded
+>   Flutter loader handles in-app waiting states instead.
+> - Optional follow-up: add iOS 18+ dark/tinted app-icon variants.
 
-- Add a named colour asset `LaunchBackground` with light `#FAF9F6` and dark `#0B0F1A`.
-- Set the storyboard view background to that colour.
-- Replace `LaunchImage` with the FitGo mark (no text) in light/dark variants.
-- Do not animate the launch screen; iOS does not allow it.
-- App icon: 1024×1024 PNG, **no alpha**, no rounded corners (iOS masks it).
-- Generate with `flutter_launcher_icons`, then add iOS 18+ dark/tinted variants in the asset catalog if desired.
+The original launch screen was white with a centred `LaunchImage`, which
+produced a bright flash on a dark-themed app.
 
 ```yaml
 flutter_launcher_icons:
@@ -986,6 +1025,50 @@ lane :beta do
   upload_to_testflight(skip_waiting_for_build_processing: true)
 end
 ```
+
+### 4.9a Android distribution artifacts
+
+> **Implemented (17 Nov 2026):** `android/app/build.gradle.kts` no longer keeps
+> debug symbols in release native libraries. That setting was inflating every
+> `libflutter.so` to ~140 MB. Release builds now strip symbols while keeping
+> `useLegacyPackaging = true`, so native libraries stay compressed and the
+> download stays small.
+
+Version `3.0.0+3`, `minSdk 24` (Android 7.0), `targetSdk 36`:
+
+| Artifact | Purpose | Size |
+|---|---|---|
+| `app-release.apk` | Universal sideload: arm64-v8a, armeabi-v7a, x86_64 | 26.7 MB |
+| `app-arm64-v8a-release.apk` | Modern 64-bit phones | 9.8 MB |
+| `app-armeabi-v7a-release.apk` | Older 32-bit phones | 9.5 MB |
+| `app-x86_64-release.apk` | Emulators / Chromebooks | 10.0 MB |
+| `app-release.aab` | Play Store upload; Play delivers per-device splits | 45.3 MB |
+
+Build commands:
+
+```bash
+# Universal APK for direct sharing/sideloading
+flutter build apk --release
+
+# Modern-device and legacy splits
+flutter build apk --release --split-per-abi
+
+# Play Store
+flutter build appbundle --release
+```
+
+SHA-256:
+
+- Universal APK: `9F95A1B05C3817BDFB26BB367B7BB493BD7EA90DC34E48E2E7FB885A6917618C`
+- arm64 APK: `46CAE6003D2A9D1883FBAB99FE59887D04166BA820DDCD8AA0D3D2B47789A7A1`
+- armeabi-v7a APK: `8D3D13035CE61EEB5D3B2CF90E8F2A855C4941AF1467E34FB464C6F231979CDA`
+- x86_64 APK: `E9A88CED440D6ADC7618FBFC0DF09CD1D2C18CE914DD4CDC0DC405386625B5FF`
+- AAB: `18CF798F85ED61F811C2D8ECF31A6C743AAAE979F8770FADE80587B20FE3B2FE`
+
+The Play AAB is larger than a single device download because it contains every
+ABI and density; Play splits it during delivery. A separate feature-reduced
+“Lite” app would need its own package ID, store listing, and data plan — size
+alone is solved by ABI splits and the bundle.
 
 ### 4.10 Phase 0 acceptance criteria
 
@@ -1850,11 +1933,19 @@ Water / Steps / Activity / Sleep / Weight
 
 ### 6.11 Profile / Settings
 
-> **Implemented (14 Nov 2026):** Profile is grouped into **Goals**,
+> **Implemented (16 Nov 2026):** Profile is grouped into **Goals**,
 > **Preferences**, **Account & Backup**, and **Help & Privacy**. Goals covers
-> calorie/water/weight goals plus body measurements and the projection dialog;
-> Preferences covers System/Light/Dark, Metric/Imperial, and the Monthly
-> Calorie Guard; Account & Backup puts last sync, pending-change count, and
+> calorie/water/weight goals plus body measurements and the projection dialog.
+> **Goal plan** asks for a target weight and target date, previews daily
+> calories, water, expected pace, and the total change, and can flag a deadline
+> that would require an unsafe deficit/surplus. The target date is kept as the
+> user’s choice, but the calorie target is capped at a safe deficit/surplus and
+> a 1,200 kcal floor; the sheet shows the earliest safe date. Water follows
+> 35 ml/kg with a 1,500 ml/day floor. Saving updates the calorie, weekly, and
+> water goals together; changing weight or height later recalculates the plan.
+> Preferences covers System/Light/Dark, Metric/Imperial, the Monthly Calorie
+> Guard, and the optional **AI coach** row (`Chat` when a key is saved, `Set up`
+> otherwise); Account & Backup puts last sync, pending-change count, and
 > **Retry sync** together, then guest import and sign-out; Help & Privacy
 > explains sync/data handling and exposes the legal/support URLs plus the app
 > version. Account deletion is still a release blocker (see section 10).
@@ -1873,6 +1964,7 @@ ACCOUNT
   Apple Health
   Notifications
   Appearance (System / Light / Dark)
+  AI coach (optional)
   App lock (Face ID)
 
 DATA
@@ -1900,6 +1992,79 @@ ABOUT
 - Add `package_info_plus`, `url_launcher`, `share_plus`, `local_auth`.
 - Add `AccountDeletionService`.
 - Add `AppLockService` with Face ID/Touch ID.
+
+### 6.11a Optional AI coach (Gemini)
+
+> **Implemented (17 Nov 2026):** FitGo has an optional, read-only AI coach in
+> **Profile → Preferences → AI coach** (`Chat` when a key exists, `Set up`
+> otherwise). There is no permanent Today card and no extra tab. The AI settings
+> sheet and `/ai-chat` screen are the only surfaces; both use the existing
+> FitGo theme and components.
+
+**How it works**
+
+- **Bring your own key.** The user creates a free Gemini API key in Google AI
+  Studio and pastes it into the AI settings sheet. The key is validated
+  locally, stored in platform secure storage (`flutter_secure_storage`,
+  `first_unlock_this_device` on iOS), and namespaced by the active local
+  account or guest. It is never written to Hive, Supabase, logs, analytics, or a
+  FitGo backend. The UI shows only the last four characters; the user can
+  replace or delete it.
+- **Consent is explicit.** Nothing is sent until the key exists and the user
+  accepts the AI privacy note. The note explains that FitGo data and chat go
+  directly to Google under the user’s own key and terms, that free-tier prompts
+  may be reviewed by Google, and that a paid key has stricter privacy.
+- **Model routing.** The first 10 requests per account per calendar day
+  alternate between `gemini-3.8-flash` and `gemini-3.6-flash`; after that the
+  app switches to `gemini-3.5-flash-lite` (about 1,500 free requests/day).
+  Failure routing is automatic: quota/rate limit, missing model, overload,
+  network failure, timeout, empty answer, and unknown provider errors fall
+  through to the next allowed model. An invalid key stops the request instead
+  of spending other models. Local cancellation never consumes quota.
+- **Read-only grounding.** `AiContextBuilder` computes the last 7/30 days of
+  calories, water, steps, sleep, macros, fasting, weight change, the goal plan,
+  and an authoritative `ON_TRACK` / `SLIGHTLY_OFF` / `OFF_TRACK` /
+  `NOT_ENOUGH_DATA` status. The model receives this compact snapshot plus at
+  most 20 recent turns; names, email, account IDs, raw notes, and keys are
+  excluded. It can explain the data but cannot write to Hive, Supabase, goals,
+  settings, or notifications.
+- **Safety rules.** The shared system prompt requires low-judgment language,
+  truthful “no data” answers, no invented numbers, no medical diagnosis, and
+  referral for symptoms, pregnancy, medication, eating disorders, or self-harm.
+  It forbids intake below 1,200 kcal/day, loss above 750 kcal/day, or gain above
+  500 kcal/day, and redirects any goal change to Profile → Goal plan. Blocked
+  or unsafe provider output becomes a normal in-chat message, not a raw error.
+- **Chat behaviour.** Themed bubbles, typing indicator, stop, retry for
+  network/timeout/unavailable/empty failures, clear-history confirmation,
+  missing-key/consent/quota/offline/safety states, and one grouped settings
+  action. The composer rotates `Summarize week`, `How is my water going?`,
+  `Explain my weight trend`, and `What should I focus on?` while empty.
+- **Local history.** At most 40 messages are kept per account; 20 are sent.
+  History and usage counters use the account’s local Hive settings and never
+  enter the sync outbox. Account switch/sign-out invalidates the AI providers;
+  account deletion must call `deleteAllAiData()` (key, consent, usage, history).
+- **Privacy.** Requests go from the device to
+  `generativelanguage.googleapis.com` over HTTPS; there is no FitGo proxy,
+  server cost, background call, or AI notification. Android backup rules
+  exclude secure-storage preferences so a key cannot ride along in a device
+  backup. Store data-safety answers still need to disclose the optional Google
+  data flow.
+
+**Code:** `lib/services/ai/*` (models, usage, key store, chat store, context,
+prompts, Gemini client, failures), `lib/providers/ai_provider.dart`,
+`lib/screens/ai_chat_screen.dart`, `lib/ui/profile/ai_settings_sheet.dart`, the
+Profile row and `/ai-chat` route, and
+`android/app/src/main/res/xml/{backup_rules,data_extraction_rules}.xml`.
+
+**Verified:** 17 AI tests cover routing/fallback, quota and usage isolation,
+history cap/clear, account scoping, deterministic on-track context, PII-free
+prompt, provider error/safety mapping, missing key/consent, invalid-key stop,
+cancel-before-request, and 320 pt/200% text layouts. Total suite: 89 passing.
+
+**Remaining device checks:** a real-key smoke test on a physical Android and
+iPhone, secure-storage persistence, keyboard/scroll feel on small screens, and
+final App Store/Play data-safety wording. Real Gemini quota behaviour can vary
+by account and region; the fallback path is covered with fakes.
 
 ### 6.12 Past day
 
@@ -1948,6 +2113,8 @@ Every data-driven screen needs:
 - [ ] Account deletion is reachable in-app and revokes Apple tokens.
 - [x] Past day no longer mutates controllers during build.
 - [ ] All screens are usable at 200% text scale and on iPhone SE.
+- [x] Optional AI coach is account-scoped, read-only, consent-gated, and falls back across models automatically.
+- [ ] AI data flow is disclosed in App Store App Privacy and Play Data safety answers.
 - [ ] Before/after screenshots are attached to each PR.
 - [x] `flutter analyze` and `flutter test` pass.
 
@@ -2293,6 +2460,15 @@ If FitGo Pro is planned:
 **Goal:** Make multi-device sync trustworthy and satisfy App Store account requirements.
 
 ### 8.1 Schema additions
+
+> **Applied (17 Nov 2026):** the baseline/repair migration
+> `supabase/migrations/20261117110000_initial_schema.sql` was pushed to the
+> hosted FitGo project. Remote migration history matches local, and
+> `user_profiles.activity_level`, `target_weight_kg`,
+> `goal_target_date`, and `weight_entries.updated_at` are present. The
+> migration also fixes the old `weight_entries` trigger that referenced a
+> missing `updated_at` column, and recreates RLS policies with explicit
+> `authenticated` roles plus delete policies and grants.
 
 Add columns to `daily_metrics`, `weight_entries`, `user_profiles`, and `app_settings`:
 
@@ -2676,12 +2852,25 @@ Use `integration_test` for flows that need real plugins. Run iOS integration tes
   currently shows `fitgo.app/privacy`, `fitgo.app/terms`, and
   `fitgo.app/support` as copyable addresses. They must load publicly, without
   login, before App Store submission.
+- [ ] **AI data-safety disclosure and terms.** The optional Gemini coach sends
+  a compact FitGo snapshot and recent chat from the device to Google under the
+  user's own key. App Privacy, Play Data safety, and the published Privacy
+  Policy must state this explicitly, including free-tier data-use terms and the
+  paid-key recommendation. The key itself stays in platform secure storage and
+  is excluded from Android backup.
 - [ ] **iOS/TestFlight verification on macOS and physical devices.** Apple Sign
   In, notification scheduling/actions, deep links, dark-mode contrast, and the
   iPad layout still need a real iPhone/iPad pass.
-- [ ] **Supabase project and provider console setup.** Apple Service ID/key,
-  Google OAuth client, redirect URLs, and the `app_settings` row for saved
-  meals must exist in the deployed environment.
+- [ ] **Android release signing.** `android/key.properties` is absent, so the
+  current release APK and AAB are debug-signed. Create and secure a Play upload
+  keystore before any store upload.
+- [x] **Supabase schema migration.** `20261117110000_initial_schema.sql` was
+  pushed to the hosted FitGo project on 17 Nov 2026. Local/remote migration
+  history match; the goal-plan columns and `weight_entries.updated_at` were
+  verified.
+- [ ] **Supabase auth provider console setup.** Apple Service ID/key, Google
+  OAuth client, redirect URLs, and the `app_settings` row for saved meals must
+  exist in the deployed environment.
 - [ ] **Field-level sync.** Same-day edits from two devices can still overwrite
   each other at row granularity; move volatile fields to per-field timestamps
   or append-only events before marketing multi-device editing.
@@ -2708,6 +2897,7 @@ Declare only what you collect:
 - **Identifiers** — user ID. Linked. App functionality.
 - **Diagnostics** — crash logs, if Sentry/Crashlytics is enabled. Not linked (if scrubbed) or linked (if user ID attached). Not tracking.
 - **Usage Data** — optional product interaction analytics. Not tracking.
+- **AI coach (optional)** — a compact progress snapshot and recent chat are sent directly from the device to Google’s Gemini API with the user’s own key, only after explicit consent. FitGo does not receive or store this content. Declare it under the appropriate content category in App Privacy and Play Data safety; it is not used for tracking.
 
 If you do **not** track users across apps/websites, set “Used to Track You” to **No** for every category.
 
@@ -2748,7 +2938,7 @@ These are intentionally **not** required for 3.0. Prioritise based on user reque
 | Barcode scanner | Fast packaged-food logging | M | 3.1 |
 | Food search database | Better than manual calories | L | 3.1 |
 | Recipe builder | Makes home cooking trackable | L | 3.2 |
-| Weekly AI coach | Turns data into one actionable plan | L | 3.2 |
+| Weekly AI action plan | Builds on the in-app coach with a scheduled weekly summary | M | 3.2 |
 | Apple Watch app | Quick water/fast/rings | XL | 3.5 |
 | Social challenges | Retention and accountability | L | 3.2 |
 | Streak repair / grace days | Reduces streak anxiety | S | 3.1 |
@@ -2816,6 +3006,7 @@ Use this as the working backlog. IDs are stable so PRs and issues can reference 
 | UI-016 | Profile/settings redesign | P1 | M | 2 |
 | UI-017 | Past day fix + redesign | P1 | S | 2 |
 | UI-018 | Empty/loading/error states | P1 | M | 2 |
+| AI-001 | Optional Gemini coach: secure BYO key, read-only grounding, automatic fallback | P1 | M | 3.0 |
 | APPLE-001 | HealthKit read/write | P1 | L | 3 |
 | ANDROID-001 | Health Connect parity + Play health declaration | P1 | M | 3 |
 | APPLE-002 | WidgetKit widgets | P1 | L | 3 |
@@ -2842,7 +3033,7 @@ Use this as the working backlog. IDs are stable so PRs and issues can reference 
 | POST-001 | Barcode scanner | P2 | M | 3.1 |
 | POST-002 | AI meal photo | P2 | XL | 3.1 |
 | POST-003 | Food search database | P2 | L | 3.1 |
-| POST-004 | Weekly AI coach | P2 | L | 3.2 |
+| POST-004 | Weekly AI action plan | P2 | M | 3.2 |
 
 ---
 
@@ -2863,6 +3054,10 @@ Use this as the working backlog. IDs are stable so PRs and issues can reference 
 | `lib/services/live_activity_service.dart` | New MethodChannel bridge | 3 |
 | `lib/services/share_service.dart` | New export/share helper | 2 |
 | `lib/services/app_lock_service.dart` | New Face ID service | 4 |
+| `lib/services/ai/*` | Gemini client, secure key store, usage router, context, prompts, chat history | 3.0 |
+| `lib/providers/ai_provider.dart` | AI settings/chat state and automatic fallback orchestration | 3.0 |
+| `lib/screens/ai_chat_screen.dart` | Optional themed AI chat surface | 3.0 |
+| `lib/ui/profile/ai_settings_sheet.dart` | Key entry, consent, usage, delete | 3.0 |
 | `lib/screens/auth_screen.dart` | Rewrite + Apple + guest mode | 2 |
 | `lib/screens/onboarding_screen.dart` | Split into steps + units + Health | 2 |
 | `lib/screens/home_screen.dart` | Split into Today feature widgets | 2 |
@@ -2882,6 +3077,10 @@ Use this as the working backlog. IDs are stable so PRs and issues can reference 
 | `ios/Podfile` | Platform 16.0 | 0 |
 | `ios/Runner.xcodeproj/project.pbxproj` | Deployment target, entitlements, capabilities | 0 |
 | `ios/Runner.xcodeproj/.../WidgetExtension` | New WidgetKit target | 3 |
+| `android/app/src/main/res/xml/backup_rules.xml` | Exclude secure-storage prefs from Android backup | 3.0 |
+| `android/app/src/main/res/xml/data_extraction_rules.xml` | Android 12+ backup exclusion | 3.0 |
+| `test/ai_test.dart` | AI routing, context, client, and account-isolation tests | 3.0 |
+| `test/ai_chat_screen_test.dart` | AI state and 320 pt/200% layout tests | 3.0 |
 | `supabase_setup.sql` | New columns, triggers, delete function | 4 |
 | `test/` | Unit/widget/golden/integration tests | 5 |
 | `fastlane/` or `.github/workflows/` | iOS CI + TestFlight | 0 |
@@ -2902,9 +3101,10 @@ Add with `flutter pub add <package>` so the latest compatible version is resolve
 | `timezone` + `flutter_timezone` | Correct scheduled local notifications | 0 |
 | `sign_in_with_apple` | Native Apple button + credential | 0 |
 | `crypto` | SHA-256 nonce for Apple sign-in | 0 |
+| `http` | Direct HTTPS calls to the user's Gemini API | 3.0 (added) |
 | `health` | HealthKit/Health Connect read/write | 3 |
 | `home_widget` | WidgetKit/App Widget data bridge | 3 |
-| `flutter_secure_storage` | Keychain/Keystore session storage | 4 |
+| `flutter_secure_storage` | Keychain/Keystore session storage and the per-account Gemini key | 0 / 4 (added) |
 | `local_auth` | Face ID/Touch ID app lock | 4 |
 | `package_info_plus` | Version/build in settings | 2 |
 | `share_plus` | Share/export reports | 2 |
@@ -3220,6 +3420,9 @@ No in-app purchases are present in this build.
 | Apple name/email only first sign-in | Medium | Empty profile | Save immediately; allow edit in settings |
 | Private Relay transactional email bounces | Medium | Password reset/export broken | Register email domain under Sign in with Apple Email Sources |
 | Account switch leaks cached data | High if shared boxes | Privacy breach | Per-account namespaces + automated isolation tests |
+| Gemini key exposed or reused across accounts | Low | Privacy breach | Platform keystore, per-account namespace, masked UI, backup exclusion, provider invalidation on switch |
+| AI quota or provider outage | High over time | Chat unavailable | Automatic 3.8/3.6 → Flash Lite routing, retry for transient failures, local logs unaffected |
+| AI gives unsafe or goal-changing advice | Medium | Health/safety | Read-only snapshot, app-owned on-track status, hard prompt limits, no write path |
 | Old client writes after schema change | Medium | Corruption | Minimum-version gating with fail-open offline mode |
 | Health Connect policy rejection | Medium | Android launch delay | Health-data declaration + in-app rationale before permissions |
 | Unit conversion bugs | Medium | Wrong goals | Store canonical kg/ml; unit tests |
@@ -3332,6 +3535,8 @@ If you want to start immediately, do these in order:
 - [ ] Build on a Mac/CI and upload the first TestFlight build.
 - [x] Start Phase 1 with `FitGoTokens`, `FitGoCard`, and the adaptive `go_router` shell.
 - [x] Add the midnight watcher and resume day-rollover refresh.
+- [x] Add the optional, account-scoped Gemini coach with secure key storage, consent, and automatic model fallback.
+- [ ] Run a real-key Gemini smoke test on Android and iOS; update App Privacy and Play Data safety answers.
 - [ ] Run the real-device matrix: Apple/Google/email sign-in, password reset, reminder delivery, overnight midnight rollover, and account switching.
 - [ ] Publish Terms/Privacy URLs and complete the account-deletion + Apple token revocation flow.
 

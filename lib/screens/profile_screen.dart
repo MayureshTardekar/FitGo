@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../core/units.dart';
 import '../models/user_profile.dart';
+import '../providers/ai_provider.dart';
 import '../providers/local_data_refresh.dart';
 import '../providers/monthly_calorie_alert_provider.dart';
 import '../providers/profile_provider.dart';
@@ -21,6 +23,8 @@ import '../ui/components/fitgo_segmented_control.dart';
 import '../ui/components/fitgo_section_header.dart';
 import '../ui/components/fitgo_sync_status_pill.dart';
 import '../ui/haptics.dart';
+import '../ui/profile/ai_settings_sheet.dart';
+import '../ui/profile/goal_planner_sheet.dart';
 import '../ui/theme/fitgo_tokens.dart';
 
 const _appVersion = '3.0.0 (3)';
@@ -46,6 +50,7 @@ class _ProfileBody extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
     final units = ref.watch(unitSystemProvider);
     final calorieAlert = ref.watch(monthlyCalorieAlertProvider);
+    final aiSettings = ref.watch(aiSettingsProvider).valueOrNull;
 
     if (profile == null) {
       return const Center(child: Text('No profile found'));
@@ -54,6 +59,7 @@ class _ProfileBody extends ConsumerWidget {
     final dailyFromWeekly = (profile.weeklyCalorieGoal / 7).round();
     final deficit = profile.tdee - dailyFromWeekly;
     final monthlyKg = deficit.abs() * 30 / 7700;
+    final goalPlan = profile.goalPlan;
     final projection = deficit.abs() < 25
         ? 'Maintaining'
         : deficit > 0
@@ -85,6 +91,19 @@ class _ProfileBody extends ConsumerWidget {
               trailingText: '${profile.weeklyCalorieGoal} / wk',
               onTap: () =>
                   _editField(context, ref, 'weeklyCalories', profile, units),
+            ),
+            FitGoListRow(
+              leadingIcon: Icons.flag_circle_outlined,
+              title: 'Goal plan',
+              subtitle: goalPlan == null
+                  ? 'Set a target weight and date'
+                  : '${units.formatWeight(goalPlan.targetWeightKg)} by '
+                        '${DateFormat('d MMM yyyy').format(goalPlan.targetDate)}',
+              trailingText: goalPlan == null
+                  ? 'Set up'
+                  : '${goalPlan.dailyCalories} kcal',
+              onTap: () =>
+                  showGoalPlannerSheet(context, profile: profile, units: units),
             ),
             FitGoListRow(
               leadingIcon: Icons.water_drop_outlined,
@@ -168,6 +187,13 @@ class _ProfileBody extends ConsumerWidget {
                 FitGoHaptics.select();
                 ref.read(unitSystemProvider.notifier).setSystem(system);
               },
+            ),
+            FitGoListRow(
+              leadingIcon: Icons.auto_awesome_outlined,
+              title: 'AI coach',
+              subtitle: 'Optional',
+              trailingText: aiSettings?.hasKey == true ? 'Chat' : 'Set up',
+              onTap: () => _openAiCoach(context, ref),
             ),
             FitGoListRow(
               leadingIcon: Icons.notification_important_outlined,
@@ -265,8 +291,11 @@ class _ProfileBody extends ConsumerWidget {
                     'Food, fasting, water, activity, sleep, and weight logs '
                     'are stored on this device. Signed-in backups are stored '
                     'in your private Supabase account. FitGo does not sell '
-                    'your data, use it for advertising, or share health data '
-                    'with third parties.',
+                    'your data or use it for advertising. Health data leaves '
+                    'the app only when you choose the optional AI coach: your '
+                    'FitGo snapshot and chat messages go directly to Google '
+                    'with your own Gemini key. FitGo never receives that key '
+                    'or those prompts.',
                 url: 'https://fitgo.app/privacy',
               ),
             ),
@@ -390,10 +419,12 @@ class _ProfileBody extends ConsumerWidget {
                 case 'weight':
                   final updated = profile.copy()
                     ..weightKg = units.weightToKg(value);
+                  _recalculateGoalPlan(updated);
                   ref.read(profileProvider.notifier).saveProfile(updated);
                 case 'height':
                   final updated = profile.copy()
                     ..heightCm = units.heightToCm(value);
+                  _recalculateGoalPlan(updated);
                   ref.read(profileProvider.notifier).saveProfile(updated);
                 case 'weeklyCalories':
                   ref
@@ -416,6 +447,21 @@ class _ProfileBody extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// Refreshes the saved plan when body details change.
+  ///
+  /// The target weight and date stay fixed, but TDEE moves with weight and
+  /// height, so daily calories and water are recalculated from the new body
+  /// size instead of silently drifting away from the goal.
+  void _recalculateGoalPlan(UserProfile updated) {
+    final plan = updated.goalPlan;
+    if (plan == null) return;
+    updated
+      ..calorieGoal = plan.dailyCalories
+      ..weeklyCalorieGoal = plan.dailyCalories * 7
+      ..waterGoalMl = plan.dailyWaterMl
+      ..weightGoal = plan.goalType;
   }
 
   Future<void> _pickWeightGoal(
@@ -639,6 +685,19 @@ class _ProfileBody extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _openAiCoach(BuildContext context, WidgetRef ref) async {
+    final settings = ref.read(aiSettingsProvider).valueOrNull;
+    if (settings?.hasKey == true) {
+      context.push('/ai-chat');
+      return;
+    }
+
+    final saved = await showAiSettingsSheet(context);
+    if (saved == true && context.mounted) {
+      context.push('/ai-chat');
+    }
   }
 
   void _showInfoDialog(

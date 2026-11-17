@@ -9,6 +9,7 @@ import 'core/day_boundary.dart';
 import 'core/theme.dart';
 import 'l10n/app_localizations.dart';
 import 'providers/local_data_refresh.dart';
+import 'providers/monthly_calorie_alert_provider.dart';
 import 'providers/storage_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/timer_provider.dart';
@@ -95,6 +96,11 @@ class _FitGoAppState extends ConsumerState<FitGoApp>
 
     _handleDayRollover();
     _scheduleMidnightRefresh();
+    // The calorie alert is one-shot; re-arm it for the next chosen time so a
+    // notification is never left over from an earlier day or month. Read it
+    // immediately so the re-arm happens even when no screen is watching it.
+    ref.invalidate(monthlyCalorieAlertProvider);
+    ref.read(monthlyCalorieAlertProvider);
 
     final userId = SupabaseService.currentUser?.id;
     if (userId == null) return;
