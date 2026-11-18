@@ -14,7 +14,7 @@ Calculate on-device using simple math, with no AI or network:
 Keep the main screen calm. Put detailed math and longer explanations behind a collapsed **Goal breakdown** or an info icon. Do not block saving or hide a zero/negative raw calorie result; show a concise explanation beside it. Keep workouts separate from the base goal and intake forecast. Logged activity may show its observed impact separately. Do not assume future workouts unless the user explicitly enters that assumption.
 
 
-> **Status:** Android release `3.0.6+8` prepared on `main`
+> **Status:** Android release `3.0.6+8` published from `main` as `v3.0.6`
 > **Current app:** FitGo `3.0.6+8` — Flutter 3.41.7 / Dart 3.11.5
 > **Target:** A polished, adaptive FitGo that feels at home on iPhone and iPad, is App Store-ready, and keeps Android working.  
 > **Last updated:** 18 November 2026
