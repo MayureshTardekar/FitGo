@@ -545,5 +545,37 @@ void main() {
       expect(state.messages, hasLength(1));
       expect(state.messages.single.text, 'Summarize week');
     });
+
+    test('rebuilds safely after a resume sync invalidates it', () async {
+      final now = DateTime(2026, 5, 20, 12);
+      keyStore.keys[storage.namespace] = 'test-key-not-real-1234567890';
+      await storage.saveLocalSetting(AiSettingsNotifier.consentSetting, true);
+      await storage.saveProfile(_profile());
+
+      final client = MockClient((request) async => _answer('Rebuilt safely.'));
+      final container = containerFor(client, now);
+      addTearDown(container.dispose);
+
+      await container.read(aiChatProvider.notifier).send('Summarize week');
+      expect(container.read(aiChatProvider).messages, hasLength(2));
+
+      // refreshLocalDataProviders does this on resume syncs, account switches,
+      // and history clears. It used to throw LateInitializationError and turn
+      // the release app into a blank grey screen.
+      container.invalidate(aiChatProvider);
+      final reloaded = container.read(aiChatProvider);
+      expect(reloaded.messages, hasLength(2));
+      expect(reloaded.sending, isFalse);
+
+      // The rebuilt notifier must not stay marked as disposed.
+      await container.read(aiChatProvider.notifier).send('And today?');
+      final state = container.read(aiChatProvider);
+      expect(state.failure, isNull);
+      expect(state.messages.last.text, 'Rebuilt safely.');
+      expect(
+        state.messages.where((message) => message.isUser).map((m) => m.text),
+        contains('And today?'),
+      );
+    });
   });
 }

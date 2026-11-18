@@ -2,7 +2,7 @@
 
 ## Goal planner UX proposal — 17 Nov 2026
 
-Status: planned, not implemented.
+Status: implemented in `33b0110` (compact updater/profile commit).
 
 Keep the current target weight and target date inputs. Keep the existing **Use this plan** action. Directly below it, add one optional numeric input labeled **What if I eat … kcal per day?**. Use the profile and the already selected target date to calculate one prominent result: **Estimated weight on [date]: [weight]**. This is the daily-intake forecast the user asked for. Do not add a second mode, or another target/date form.
 
@@ -14,18 +14,19 @@ Calculate on-device using simple math, with no AI or network:
 Keep the main screen calm. Put detailed math and longer explanations behind a collapsed **Goal breakdown** or an info icon. Do not block saving or hide a zero/negative raw calorie result; show a concise explanation beside it. Keep workouts separate from the base goal and intake forecast. Logged activity may show its observed impact separately. Do not assume future workouts unless the user explicitly enters that assumption.
 
 
-> **Status:** Android release `3.0.6+8` published from `main` as `v3.0.6`
-> **Current app:** FitGo `3.0.6+8` — Flutter 3.41.7 / Dart 3.11.5
+> **Status:** Android release `3.0.7+9` prepared on `main`
+> **Current app:** FitGo `3.0.7+9` — Flutter 3.41.7 / Dart 3.11.5
 > **Target:** A polished, adaptive FitGo that feels at home on iPhone and iPad, is App Store-ready, and keeps Android working.  
 > **Last updated:** 18 November 2026
 >
-> **FitGo 3.0.6 (18 Nov 2026):** Adjusted AI Coach activity resume after the 3.0.5 lifecycle change did not resolve the gray-screen report on the user's device. The coach no longer forcibly recreates the whole page on resume; it still pauses its rotating hint timer, dismisses stale keyboard focus, and keeps an unsent draft locally on-device (not in cloud sync). Drafts clear when sent. The exact device-side failure has not yet been captured, so this release is a targeted stability adjustment, not a confirmed device reproduction.
+> **FitGo 3.0.7 (18 Nov 2026):** Fixed the gray AI Coach screen from a real Android 15 device log. `AiChatNotifier.build()` was reinitializing `late final` dependencies after Riverpod invalidated the provider during app resume/account refresh, causing `LateInitializationError`. Dependencies are now replaceable per build, and disposal of an old build cancels its in-flight request. A regression test covers provider invalidation, saved chat history, and sending again.
+> **FitGo 3.0.6 (18 Nov 2026):** Adjusted AI Coach activity resume after the 3.0.5 lifecycle change did not resolve the gray-screen report. The coach no longer forcibly recreates the whole page on resume; it still pauses its rotating hint timer, dismisses stale keyboard focus, and keeps unsent drafts locally on-device (not in cloud sync). Device logs later identified the provider rebuild failure fixed in 3.0.7.
 > **FitGo 3.0.5 (18 Nov 2026):** Added AI Coach lifecycle handling and local-only unsent draft recovery for Android app switching. Its forced page-subtree recreation on resume was removed in 3.0.6 after it did not resolve the reported issue.
 > **Next milestone:** a TestFlight install on a real iPhone and iPad. Code-side Phase 0, Phase 1, the v3 Today/Trends/Profile rebuild, and the optional AI coach are in place; macOS signing, device verification, account deletion, published legal URLs, and store data-safety answers remain external blockers.
 >
-> **v3 UI snapshot (16 Nov 2026):** Today is a quick logbook with one calorie hero, independent flat rows, one meal sheet, one-tap water with Undo, and a folded Health section. Trends opens on this week with one intake-vs-budget chart, one plain-language insight, lazy history, and `/past-day?date=` deep links. Profile is grouped into **Goals**, **Preferences**, **Account & Backup**, and **Help & Privacy**, with last sync, pending-change count, and retry together. **Goals → Goal plan** asks for a target weight and date, then sets daily calories and water from a safe deficit/surplus.
+> **v3 UI snapshot (16 Nov 2026):** Today is a quick logbook with one calorie hero, independent flat rows, one meal sheet, one-tap water with Undo, and a folded Health section. Trends opens on this week with one intake-vs-budget chart, one plain-language insight, lazy history, and `/past-day?date=` deep links. Profile is grouped into **Goals**, **Preferences**, **Account & Backup**, and **About**, with last sync, pending-change count, and retry together. **Goals → Goal plan** asks for a target weight and date, then sets daily calories from the calculated target and water from the safe hydration goal.
 >
-> **Goal planner (16 Nov 2026):** `GoalPlan` converts 7,700 kcal/kg into a daily budget, caps loss at 750 kcal/day and gain at 500 kcal/day, enforces a 1,200 kcal/day floor, and shows the earliest safe date when a deadline is too aggressive. The user’s target date is kept, but the saved calorie target follows the safe pace instead of recommending starvation. Water follows 35 ml/kg rounded to 250 ml with a **1,500 ml/day floor**. Onboarding applies the same suggested calorie floor and water floor, so the first plan is safe too. The plan is stored in Hive fields 10–11, included in Supabase profile sync, and recalculated when weight or height changes.
+> **Goal planner (17 Nov 2026):** `GoalPlan` converts 7,700 kcal/kg and the selected target date into a daily calorie target. The 16 Nov 750/500 kcal caps and the 1,200 kcal planner floor were removed in `33b0110`; the planner now keeps the raw calculated target and explains when the date implies a negative intake instead of blocking the save. Onboarding still applies a 1,200 kcal floor to suggested loss calories. Water follows 35 ml/kg rounded to 250 ml with a **1,500 ml/day floor**. The plan is stored in Hive fields 10–11, included in Supabase profile sync, and recalculated when weight or height changes.
 >
 > **Notification audit (16 Nov 2026):** Android now uses only the cross-platform `flutter_local_notifications` path; the legacy Kotlin alarm/receiver stack was removed so old reminders cannot duplicate. Fasting series cover the full 36 h preset (60 pending slots), use the white status-bar icon and a high-importance channel, and never schedule a time in the past. The series is re-armed on resume after a permission change or an OS cleanup. The calorie guard is one-shot and re-armed on resume/data changes even when no screen is open, so stale month totals cannot repeat. Permission prompts only happen from explicit user actions, and concurrent initialization now awaits one shared future.
 >

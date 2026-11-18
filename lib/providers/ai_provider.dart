@@ -202,18 +202,27 @@ class AiChatState {
 class AiChatNotifier extends Notifier<AiChatState> {
   static const maxUserMessageLength = 2000;
 
-  late final LocalStorage _storage;
-  late final AiChatStore _chatStore;
-  late final AiUsageStore _usageStore;
-  late final AiKeyStore _keyStore;
-  late final DateTime Function() _now;
-  late final GeminiClient _gemini;
+  // These fields are reassigned because Riverpod reruns `build` on the same
+  // notifier when the provider is invalidated. They must not be `final`.
+  late LocalStorage _storage;
+  late AiChatStore _chatStore;
+  late AiUsageStore _usageStore;
+  late AiKeyStore _keyStore;
+  late DateTime Function() _now;
+  late GeminiClient _gemini;
 
   bool _disposed = false;
   int _generation = 0;
 
   @override
   AiChatState build() {
+    // A resume sync, account switch, or history clear invalidates this
+    // provider. Reset the per-build flags so a rebuild cannot throw a
+    // LateInitializationError or let an in-flight reply from the previous
+    // account reach the new state.
+    _disposed = false;
+    _generation++;
+
     _storage = ref.read(localStorageProvider);
     _chatStore = AiChatStore(_storage);
     _usageStore = AiUsageStore(_storage);
@@ -223,9 +232,11 @@ class AiChatNotifier extends Notifier<AiChatState> {
       clientFactory: ref.read(aiHttpClientFactoryProvider),
     );
 
+    final gemini = _gemini;
     ref.onDispose(() {
       _disposed = true;
-      _gemini.cancel();
+      _generation++;
+      gemini.cancel();
     });
 
     return AiChatState(messages: _chatStore.load());
