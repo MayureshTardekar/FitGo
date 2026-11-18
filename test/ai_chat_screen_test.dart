@@ -196,30 +196,41 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('AI chat redraws on resume and preserves its unsent draft', (
+  testWidgets('AI chat survives repeated resumes with its draft and history', (
     tester,
   ) async {
     useSmallScreen(tester);
-    await tester.pumpWidget(wrap(const AiChatScreen()));
+    final chat = _FakeChatNotifier([
+      AiChatMessage(
+        role: AiChatRole.user,
+        text: 'How is my week?',
+        createdAt: DateTime(2026, 5, 20),
+      ),
+      AiChatMessage(
+        role: AiChatRole.model,
+        text: 'Your logged activity looks steady.',
+        createdAt: DateTime(2026, 5, 20),
+      ),
+    ]);
+    await tester.pumpWidget(wrap(const AiChatScreen(), chat: () => chat));
     await settle(tester);
 
     await tester.enterText(find.byType(TextField), 'Typed but not sent');
     await tester.pump();
-    final beforePause = tester.widget<Scaffold>(find.byType(Scaffold));
+    for (var cycle = 0; cycle < 2; cycle++) {
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+      expect(chatStore.draft, 'Typed but not sent');
 
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
-    await tester.pump();
-    expect(chatStore.draft, 'Typed but not sent');
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await settle(tester);
+    }
 
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    await settle(tester);
-
-    final afterResume = tester.widget<Scaffold>(find.byType(Scaffold));
-    expect(identical(afterResume, beforePause), isFalse);
     expect(
       tester.widget<TextField>(find.byType(TextField)).controller?.text,
       'Typed but not sent',
     );
+    expect(find.text('Your logged activity looks steady.'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

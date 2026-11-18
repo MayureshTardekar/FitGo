@@ -48,7 +48,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen>
   Timer? _draftSaveTimer;
   Future<void> _draftSaveQueue = Future<void>.value();
   int _hintIndex = 0;
-  int _resumeGeneration = 0;
   bool _appIsResumed = true;
   bool _canSend = false;
 
@@ -130,10 +129,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen>
     if (state == AppLifecycleState.resumed && mounted) {
       _appIsResumed = true;
       _startHintTimer();
-      // Recreate the page after Android restores its activity surface and
-      // insets, avoiding a stale blank frame on this route.
-      setState(() => _resumeGeneration++);
-      _scheduleScroll(animated: false);
     }
   }
 
@@ -168,63 +163,60 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen>
       }
     });
 
-    return KeyedSubtree(
-      key: ValueKey(_resumeGeneration),
-      child: Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        appBar: AppBar(
-          title: const Text('AI coach'),
-          actions: [
-            IconButton(
-              tooltip: 'Clear conversation',
-              onPressed: chat.hasMessages ? _confirmClear : null,
-              icon: const Icon(Icons.delete_sweep_outlined),
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: const Text('AI coach'),
+        actions: [
+          IconButton(
+            tooltip: 'Clear conversation',
+            onPressed: chat.hasMessages ? _confirmClear : null,
+            icon: const Icon(Icons.delete_sweep_outlined),
+          ),
+          IconButton(
+            tooltip: 'AI coach settings',
+            onPressed: _openSettings,
+            icon: const Icon(Icons.tune_rounded),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            Expanded(
+              child: chat.hasMessages || chat.sending
+                  ? _Conversation(
+                      chat: chat,
+                      scrollController: _scrollController,
+                    )
+                  : _EmptyState(
+                      settings: settings,
+                      suggestions: _suggestions,
+                      onSuggestion: _sendText,
+                      onSetup: _openSettings,
+                    ),
             ),
-            IconButton(
-              tooltip: 'AI coach settings',
-              onPressed: _openSettings,
-              icon: const Icon(Icons.tune_rounded),
+            if (chat.failure != null)
+              _FailureBanner(
+                failure: chat.failure!,
+                canRetry: chat.canRetry,
+                onRetry: () => ref.read(aiChatProvider.notifier).retry(),
+                onOpenSettings: _openSettings,
+                onDismiss: () =>
+                    ref.read(aiChatProvider.notifier).dismissFailure(),
+              ),
+            _Composer(
+              controller: _composer,
+              focusNode: _focusNode,
+              hint: _hints[_hintIndex],
+              canSend: _canSend,
+              sending: chat.sending,
+              modelLabel: chat.usingModel,
+              onSend: _send,
+              onStop: _stop,
             ),
           ],
-        ),
-        body: SafeArea(
-          top: false,
-          child: Column(
-            children: [
-              Expanded(
-                child: chat.hasMessages || chat.sending
-                    ? _Conversation(
-                        chat: chat,
-                        scrollController: _scrollController,
-                      )
-                    : _EmptyState(
-                        settings: settings,
-                        suggestions: _suggestions,
-                        onSuggestion: _sendText,
-                        onSetup: _openSettings,
-                      ),
-              ),
-              if (chat.failure != null)
-                _FailureBanner(
-                  failure: chat.failure!,
-                  canRetry: chat.canRetry,
-                  onRetry: () => ref.read(aiChatProvider.notifier).retry(),
-                  onOpenSettings: _openSettings,
-                  onDismiss: () =>
-                      ref.read(aiChatProvider.notifier).dismissFailure(),
-                ),
-              _Composer(
-                controller: _composer,
-                focusNode: _focusNode,
-                hint: _hints[_hintIndex],
-                canSend: _canSend,
-                sending: chat.sending,
-                modelLabel: chat.usingModel,
-                onSend: _send,
-                onStop: _stop,
-              ),
-            ],
-          ),
         ),
       ),
     );

@@ -14,12 +14,13 @@ Calculate on-device using simple math, with no AI or network:
 Keep the main screen calm. Put detailed math and longer explanations behind a collapsed **Goal breakdown** or an info icon. Do not block saving or hide a zero/negative raw calorie result; show a concise explanation beside it. Keep workouts separate from the base goal and intake forecast. Logged activity may show its observed impact separately. Do not assume future workouts unless the user explicitly enters that assumption.
 
 
-> **Status:** Android release `3.0.5+7` prepared on `main`
-> **Current app:** FitGo `3.0.5+7` — Flutter 3.41.7 / Dart 3.11.5
+> **Status:** Android release `3.0.6+8` prepared on `main`
+> **Current app:** FitGo `3.0.6+8` — Flutter 3.41.7 / Dart 3.11.5
 > **Target:** A polished, adaptive FitGo that feels at home on iPhone and iPad, is App Store-ready, and keeps Android working.  
 > **Last updated:** 18 November 2026
 >
-> **FitGo 3.0.5 (18 Nov 2026):** Hardened AI Coach activity resume after Android notification shade/app switching. The coach pauses its rotating hint timer in the background, dismisses stale keyboard focus, recreates its page subtree on resume, and keeps an unsent draft locally on-device (not in cloud sync); drafts clear when sent.
+> **FitGo 3.0.6 (18 Nov 2026):** Adjusted AI Coach activity resume after the 3.0.5 lifecycle change did not resolve the gray-screen report on the user's device. The coach no longer forcibly recreates the whole page on resume; it still pauses its rotating hint timer, dismisses stale keyboard focus, and keeps an unsent draft locally on-device (not in cloud sync). Drafts clear when sent. The exact device-side failure has not yet been captured, so this release is a targeted stability adjustment, not a confirmed device reproduction.
+> **FitGo 3.0.5 (18 Nov 2026):** Added AI Coach lifecycle handling and local-only unsent draft recovery for Android app switching. Its forced page-subtree recreation on resume was removed in 3.0.6 after it did not resolve the reported issue.
 > **Next milestone:** a TestFlight install on a real iPhone and iPad. Code-side Phase 0, Phase 1, the v3 Today/Trends/Profile rebuild, and the optional AI coach are in place; macOS signing, device verification, account deletion, published legal URLs, and store data-safety answers remain external blockers.
 >
 > **v3 UI snapshot (16 Nov 2026):** Today is a quick logbook with one calorie hero, independent flat rows, one meal sheet, one-tap water with Undo, and a folded Health section. Trends opens on this week with one intake-vs-budget chart, one plain-language insight, lazy history, and `/past-day?date=` deep links. Profile is grouped into **Goals**, **Preferences**, **Account & Backup**, and **Help & Privacy**, with last sync, pending-change count, and retry together. **Goals → Goal plan** asks for a target weight and date, then sets daily calories and water from a safe deficit/surplus.
