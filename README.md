@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://flutter.dev"><img src="https://img.shields.io/badge/Built%20with-Flutter-02569B?style=flat-square&logo=flutter&logoColor=white" alt="Built with Flutter"></a>
   <img src="https://img.shields.io/badge/Storage-Offline--first-0F766E?style=flat-square" alt="Offline first">
-  <img src="https://img.shields.io/badge/Version-3.0.0-F25C2A?style=flat-square" alt="Version 3.0.0">
+  <img src="https://img.shields.io/badge/Version-3.0.7-F25C2A?style=flat-square" alt="Version 3.0.7">
 </p>
 
 FitGo keeps the daily routine simple. Add a meal, record water, start a fast, log activity, and review your progress without needing an internet connection. Your information is saved on the device first. Sign in only when you want a private cloud backup and cross-device access.
@@ -47,6 +47,7 @@ FitGo keeps the daily routine simple. Add a meal, record water, start a fast, lo
 | Reminders | Use fasting reminders and a monthly calorie guard that warns before a chosen monthly limit. |
 | Appearance and units | Follow the device theme or choose light or dark mode. Switch between metric and imperial units. |
 | Backup | Use FitGo as a local guest, or sign in with email, Google, or Apple to back up your data with Supabase. |
+| App updates | On Android, **Profile → About** checks the latest GitHub release and can download and install a newer APK without removing your local data. |
 | Optional AI coach | Add your own Gemini API key for read-only, data-aware coaching inside the app. |
 
 ---
@@ -55,11 +56,13 @@ FitGo keeps the daily routine simple. Add a meal, record water, start a fast, lo
 
 1. Open FitGo and choose **Continue without an account** for a local guest profile, or create an account to enable backup.
 2. Complete the short setup with your body details, activity level, and preferred goal.
-3. Open **Profile → Goals → Goal plan** if you want a target weight and date. FitGo will show a practical daily calorie and water target.
+3. Open **Profile → Goals → Goal plan** if you want a target weight and date. FitGo will show a calculated daily calorie and water target.
 4. Go to **Today** and add your first meal, water entry, fast, or health log.
 5. Return to **Trends** after a few days to review your intake against the budget.
 
 You can use all daily tracking features while offline. An account is optional for using the app.
+
+Goal plans use the target date to calculate a daily calorie target from 7,700 kcal per kg. Water is set to 35 ml/kg with a 1,500 ml/day minimum. If the date is so aggressive that the calculated intake would be negative, FitGo explains that the date is unreachable through calorie intake alone but still lets you save the goal.
 
 ---
 
@@ -76,7 +79,7 @@ You can use all daily tracking features while offline. An account is optional fo
 - Tap **Fasting** and choose a fasting window. You can also record an earlier start time when needed.
 - Open **Health** to manually log activity, sleep, or weight.
 
-The calorie hero shows the amount still available for today. If you log less or more than expected, the weekly budget recalculates the remaining pace.
+The calorie hero shows the amount still available for today, or how far over you are. If you log less or more than expected, the weekly budget recalculates the remaining pace.
 
 ### Meals and nutrition
 
@@ -124,14 +127,16 @@ Tap a past day to review or update its food, water, activity, sleep, and weight 
 
 ### Profile and goal planning
 
-**Profile** groups settings into Goals, Preferences, Account & Backup, and Help & Privacy.
+**Profile** groups settings into Goals, Preferences, Account & Backup, and About.
 
-- Update body details, calorie budget, water target, activity level, and weight goal.
-- Use **Goal plan** for a target weight and date.
-- The planner uses the raw calculated target. If required intake is negative, FitGo explains the date is unreachable through calorie intake alone and still lets you save the goal.
+- Update weight, height, weekly calorie budget, water goal, and weight goal.
+- Use **Goal plan** for a target weight and date. It also includes an optional daily-intake forecast: enter what you expect to eat and see the estimated weight on the target date.
+- The planner uses the raw calculated target. If required intake is negative, FitGo explains that the date is unreachable through calorie intake alone and still lets you save the goal.
+- Use **Redo full setup** to change activity level or the other answers from onboarding.
 - Switch between metric and imperial units at any time. Data remains stored consistently in the background.
 - Choose System, Light, or Dark appearance.
-- Enable the monthly calorie guard and set its limit, alert time, and message.
+- Enable the monthly calorie guard and set its limit, warning percentage, alert time, and message.
+- **About** shows the installed version and checks GitHub for Android updates.
 
 ---
 
@@ -156,15 +161,17 @@ FitGo stores account backups in Supabase with row-level access controls. It does
 
 ## Optional AI coach
 
-The AI coach is completely optional and requires your own Google Gemini API key.
+The AI coach is completely optional and requires your own Google Gemini API key and an internet connection.
 
 1. Open **Profile → Preferences → AI coach**.
-2. Add your personal Gemini key.
-3. Choose **Chat** to ask about your logged progress.
+2. Paste your Gemini API key and accept the privacy note. **Get a free key** copies the Google AI Studio link.
+3. Choose **Save key**. FitGo opens the chat. After setup, the same row reads **Chat**.
 
-FitGo prepares a compact, privacy-minimized snapshot of your recent tracking data. It excludes your name, email, account ID, and API key. The key is kept in platform secure storage for that account, while AI chat history stays on the device and can be deleted.
+The coach receives a compact snapshot of your body details, goals, and recent logs. It excludes your name, email, account ID, and API key. The key stays in platform secure storage for that account and is excluded from cloud sync and Android backup. Chat history stays on the device and can be deleted; clearing it leaves your FitGo logs untouched.
 
-The coach is read-only. It cannot change your goals or log data. Treat responses as general information rather than medical advice.
+On the free tier, FitGo alternates between Gemini 3.8 Flash and 3.6 Flash for the first 10 requests each day, then falls back to Flash Lite so the chat keeps working. Google's quotas, availability, and free-tier terms still apply.
+
+The coach is read-only. It cannot change your goals, logs, or settings. Treat responses as general information rather than medical advice.
 
 ---
 
@@ -186,11 +193,26 @@ FitGo is built with Flutter and has adaptive mobile layouts.
 
 | Platform | Status |
 | --- | --- |
-| Android | Supported for development and release builds. Android 13 and later can request notification permission. |
-| iPhone and iPad | iOS project foundation includes Sign in with Apple, notification callbacks, adaptive navigation, and iOS 16 deployment support. Building and TestFlight testing require macOS and Xcode. |
+| Android | Supported for development and direct-install release builds. GitHub Releases is the current distribution channel; a Google Play listing is not available yet. Android 13 and later asks for notification permission. |
+| iPhone and iPad | The iOS project includes Sign in with Apple, notification callbacks, adaptive navigation, and an iOS 16 deployment target. It has not yet been verified on a physical iPhone or iPad. Building and TestFlight testing require macOS, Xcode, and Apple signing. |
 | Tablet layouts | Wider screens use a navigation rail and retain each main section while switching tabs. |
 
 Before public App Store distribution, complete real iPhone and iPad testing, publish the Privacy, Terms, and Support pages, and add the required in-app account deletion flow.
+
+---
+
+## Install on Android
+
+FitGo is not on Google Play yet. Android builds are published on GitHub Releases.
+
+1. Open [FitGo Releases](https://github.com/MayureshTardekar/FitGo/releases/latest).
+2. Download `app-arm64-v8a-release.apk` for most modern phones, `app-armeabi-v7a-release.apk` for older 32-bit devices, or the universal `app-release.apk` if you are unsure.
+3. Open the downloaded file and allow installs from that source when Android asks.
+4. Install over an existing FitGo app to keep your local data. The release also includes `SHA256SUMS.txt` if you want to verify the download.
+
+After installation, **Profile → About** checks for newer releases and can download the next APK from inside the app.
+
+Release builds currently use a development signing key, so they are intended for direct installation and testing rather than a Play Store submission.
 
 ---
 
@@ -199,58 +221,60 @@ Before public App Store distribution, complete real iPhone and iPad testing, pub
 ### Requirements
 
 - Flutter 3.41 or newer
-- Dart 3.10 or newer
+- Dart 3.10.8 or newer
 - Android Studio and an Android emulator or device for Android development
 - macOS, Xcode, and CocoaPods for iOS builds
 - A Supabase project when you want your own backend
 
 ### Install and run
 
-\`\`\`bash
-git clone https://github.com/YOUR_USERNAME/FitGo.git
+```bash
+git clone https://github.com/MayureshTardekar/FitGo.git
 cd FitGo
 flutter pub get
 flutter analyze
 flutter test
 flutter run
-\`\`\`
+```
 
 If generated Hive files need to be refreshed after changing a model, run:
 
-\`\`\`bash
+```bash
 dart run build_runner build --delete-conflicting-outputs
-\`\`\`
+```
 
 ### Build Android
 
-\`\`\`bash
-flutter build apk --release
+```bash
+flutter build apk --release --split-per-abi
 flutter build appbundle --release
-\`\`\`
+```
 
-The APK is written to \`build/app/outputs/flutter-apk/app-release.apk\`.
+Split APKs and the universal APK are written to `build/app/outputs/flutter-apk/` as `app-arm64-v8a-release.apk`, `app-armeabi-v7a-release.apk`, `app-x86_64-release.apk`, and `app-release.apk`. Run `flutter build apk --release` without `--split-per-abi` to build only the universal APK.
+
+The in-app updater reads the latest GitHub release and prefers an asset with `arm64` in its name, so attach the split APKs to a release you intend to distribute.
 
 ### Build iOS
 
 Run this on macOS with Xcode and CocoaPods installed:
 
-\`\`\`bash
+```bash
 flutter pub get
 cd ios
 pod install
 cd ..
 flutter build ipa --release
-\`\`\`
+```
 
 ---
 
 ## Configure your own backend
 
-The repository currently points at a configured Supabase project. Before distributing a fork, create your own Supabase project and update \`lib/core/supabase_config.dart\`.
+The repository currently points at a configured Supabase project. Before distributing a fork, create your own Supabase project and update `lib/core/supabase_config.dart`.
 
-1. Apply the migration in \`supabase/migrations/\`.
+1. Apply the migration in `supabase/migrations/`.
 2. Enable the authentication methods you plan to offer.
-3. Add \`com.fitgo.fitgo://login-callback\` to Supabase Auth redirect URLs.
+3. Add `com.fitgo.fitgo://login-callback` to Supabase Auth redirect URLs.
 4. For Google sign-in, configure a Google OAuth web client in Supabase.
 5. For Apple sign-in, enable the Apple provider in Supabase and configure the Apple capability in Xcode.
 6. Never put a Supabase service-role key or an Apple private key in the Flutter app.
@@ -263,13 +287,13 @@ The supporting schema and local Supabase workflow are documented in [supabase/RE
 
 | Location | Purpose |
 | --- | --- |
-| \`lib/screens/\` | Today, Trends, Profile, authentication, onboarding, past-day editing, and AI chat screens |
-| \`lib/ui/\` | Shared responsive components, sheets, theme tokens, and adaptive navigation |
-| \`lib/providers/\` | App state for logs, goals, sync, units, notifications, and AI |
-| \`lib/services/\` | Hive storage, Supabase sync, notifications, and optional AI services |
-| \`supabase/migrations/\` | Versioned database schema |
-| \`test/\` | Unit and widget coverage for goals, logs, sync behavior, UI layout, and AI safeguards |
-| \`upgrade.md\` | Product roadmap, verification notes, and remaining release work |
+| `lib/screens/` | Today, Trends, Profile, authentication, onboarding, past-day editing, and AI chat screens |
+| `lib/ui/` | Shared responsive components, sheets, theme tokens, and adaptive navigation |
+| `lib/providers/` | App state for logs, goals, sync, units, notifications, and AI |
+| `lib/services/` | Hive storage, Supabase sync, notifications, and optional AI services |
+| `supabase/migrations/` | Versioned database schema |
+| `test/` | Unit and widget coverage for goals, logs, sync behavior, UI layout, and AI safeguards |
+| `upgrade.md` | Product roadmap, verification notes, and remaining release work |
 
 ---
 
@@ -278,7 +302,10 @@ The supporting schema and local Supabase workflow are documented in [supabase/RE
 - Food, water, activity, sleep, and weight are user-entered records in this version.
 - No Apple Health, Health Connect, wearable, barcode scanning, progress-photo, Face ID lock, or Live Activity feature is active yet.
 - Same-day simultaneous edits on two offline devices do not have field-level conflict merging.
+- The AI coach needs a Gemini key and an internet connection. Responses depend on Google's quotas and can be wrong.
 - The public privacy, terms, and support links are placeholders until the FitGo website is published.
+- Android is distributed as direct-install APKs rather than through Google Play, and builds use a development signing key until a release keystore is configured.
+- iOS has not been runtime-verified on physical devices.
 - An App Store-ready account deletion and Apple token-revocation flow still needs to be completed.
 
 ---

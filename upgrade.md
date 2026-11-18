@@ -34,7 +34,7 @@ Keep the main screen calm. Put detailed math and longer explanations behind a co
 >
 > **Latest fixes (14 Nov 2026):** Meal Undo now preserves legacy v2 calories and untracked totals; past-day edits refresh Trends and every derived cache via `LocalStorage.dataRevision`; Today’s header and water row fit 320 pt at 200% text in guest and pending-sync states. Regressions live in `test/provider_undo_test.dart`, `test/past_day_screen_test.dart`, and `test/home_layout_test.dart`.
 >
-> **Verified (17 Nov 2026):** `flutter analyze` clean and all **91 tests** pass, including 17 AI routing/context/fallback/isolation/layout/lifecycle tests, 10 goal-planner/hydration tests, 9 notification-scheduling tests, and 2 branding tests. Android release builds pass after dropping retained native debug symbols: universal APK **26.7 MB** (all ABIs, 10:41, SHA-256 `9F95A1B05C3817BDFB26BB367B7BB493BD7EA90DC34E48E2E7FB885A6917618C`), arm64 split **9.8 MB**, and Play AAB **45.3 MB** (per-device download is roughly 10 MB). The previous 123 MB APK was the same app with ~140 MB unstripped `libflutter.so` per ABI. Hosted Supabase migration `20261117110000_initial_schema.sql` was pushed successfully; local and remote migration history match, and the `user_profiles` goal columns plus `weight_entries.updated_at` were verified. The packaged APK exposes `drawable/ic_stat_fitgo`, so the notification icon survives release resource optimization, and secure-storage preferences are excluded from Android backup. The new white-on-orange mark was checked at 40/64/76 px and in the loading state, and the Android 12+ splash theme compiles. iOS runtime verification, a real-key Gemini smoke test, and real-device notification timing still require physical devices. The APK and AAB are debug-signed until `android/key.properties` and a release keystore are supplied.
+> **Verified (18 Nov 2026):** `flutter analyze` clean and all **95 tests** pass, including the new AI-provider rebuild regression plus 17 AI routing/context/fallback/isolation/layout/lifecycle tests, 10 goal-planner/hydration tests, 9 notification-scheduling tests, and 2 branding tests. Release `3.0.7+9` was built and installed over 3.0.6 on a vivo V2307 (Android 15): opening **AI Coach**, backgrounding the app, resuming, then forcing a provider invalidation with **Retry sync** kept the chat and history intact with no `LateInitializationError`, Flutter fatal, or grey screen in logcat. Artifacts: universal APK **26.8 MB** (28,079,633 bytes), arm64 split **10.5 MB** (10,998,584 bytes), armeabi-v7a **10.2 MB**, x86_64 **10.7 MB**, and Play AAB **45.4 MB** (per-device download is roughly 10 MB). Hosted Supabase migration `20261117110000_initial_schema.sql` was pushed successfully; local and remote migration history match, and the `user_profiles` goal columns plus `weight_entries.updated_at` were verified. The packaged APK exposes `drawable/ic_stat_fitgo`, so the notification icon survives release resource optimization, and secure-storage preferences are excluded from Android backup. The new white-on-orange mark was checked at 40/64/76 px and in the loading state, and the Android 12+ splash theme compiles. iOS runtime verification, a real-key Gemini smoke test, and real-device notification timing still require physical devices. The APK and AAB are debug-signed until `android/key.properties` and a release keystore are supplied.
 
 ---
 
@@ -1056,11 +1056,11 @@ Version `3.0.0+3`, `minSdk 24` (Android 7.0), `targetSdk 36`:
 
 | Artifact | Purpose | Size |
 |---|---|---|
-| `app-release.apk` | Universal sideload: arm64-v8a, armeabi-v7a, x86_64 | 26.7 MB |
-| `app-arm64-v8a-release.apk` | Modern 64-bit phones | 9.8 MB |
-| `app-armeabi-v7a-release.apk` | Older 32-bit phones | 9.5 MB |
-| `app-x86_64-release.apk` | Emulators / Chromebooks | 10.0 MB |
-| `app-release.aab` | Play Store upload; Play delivers per-device splits | 45.3 MB |
+| `app-release.apk` | Universal sideload: arm64-v8a, armeabi-v7a, x86_64 | 26.8 MB |
+| `app-arm64-v8a-release.apk` | Modern 64-bit phones | 10.5 MB |
+| `app-armeabi-v7a-release.apk` | Older 32-bit phones | 10.2 MB |
+| `app-x86_64-release.apk` | Emulators / Chromebooks | 10.7 MB |
+| `app-release.aab` | Play Store upload; Play delivers per-device splits | 45.4 MB |
 
 Build commands:
 
@@ -1077,11 +1077,11 @@ flutter build appbundle --release
 
 SHA-256:
 
-- Universal APK: `9F95A1B05C3817BDFB26BB367B7BB493BD7EA90DC34E48E2E7FB885A6917618C`
-- arm64 APK: `46CAE6003D2A9D1883FBAB99FE59887D04166BA820DDCD8AA0D3D2B47789A7A1`
-- armeabi-v7a APK: `8D3D13035CE61EEB5D3B2CF90E8F2A855C4941AF1467E34FB464C6F231979CDA`
-- x86_64 APK: `E9A88CED440D6ADC7618FBFC0DF09CD1D2C18CE914DD4CDC0DC405386625B5FF`
-- AAB: `18CF798F85ED61F811C2D8ECF31A6C743AAAE979F8770FADE80587B20FE3B2FE`
+- Universal APK: `6876601D2BE2CC762859076E1EDFA370DB31292224CC435318DE74005B0DF341`
+- arm64 APK: `217CA6D0AE671ACF9CD1208634DF185291D83465539DA4F1906950516D1956FD`
+- armeabi-v7a APK: `885155827D8CE85B3DD6E4B8081CC205B89FBA950CDA28F591EEC961989410E2`
+- x86_64 APK: `6DE7770D62ABB1D9A6AF8DA23DF675AB7D30B118DC59FB881790FF0461D64A47`
+- AAB: `14675B737E53A4F815B71EEDB59FB5D2693132DAFE473A8154A93475C35F3B22`
 
 The Play AAB is larger than a single device download because it contains every
 ABI and density; Play splits it during delivery. A separate feature-reduced
