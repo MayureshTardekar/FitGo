@@ -14,7 +14,7 @@ Calculate on-device using simple math, with no AI or network:
 Keep the main screen calm. Put detailed math and longer explanations behind a collapsed **Goal breakdown** or an info icon. Do not block saving or hide a zero/negative raw calorie result; show a concise explanation beside it. Keep workouts separate from the base goal and intake forecast. Logged activity may show its observed impact separately. Do not assume future workouts unless the user explicitly enters that assumption.
 
 
-> **Status:** Android release `3.0.7+9` prepared on `main`
+> **Status:** Android release `3.0.7+9` published from `main` as `v3.0.7`
 > **Current app:** FitGo `3.0.7+9` — Flutter 3.41.7 / Dart 3.11.5
 > **Target:** A polished, adaptive FitGo that feels at home on iPhone and iPad, is App Store-ready, and keeps Android working.  
 > **Last updated:** 18 November 2026
@@ -1952,7 +1952,7 @@ Water / Steps / Activity / Sleep / Weight
 ### 6.11 Profile / Settings
 
 > **Implemented (16 Nov 2026):** Profile is grouped into **Goals**,
-> **Preferences**, **Account & Backup**, and **Help & Privacy**. Goals covers
+> **Preferences**, **Account & Backup**, and **About**. Goals covers
 > calorie/water/weight goals plus body measurements and the projection dialog.
 > **Goal plan** asks for a target weight and target date, previews daily
 > calories, water, expected pace, and the total change, and can flag a deadline
@@ -1964,9 +1964,10 @@ Water / Steps / Activity / Sleep / Weight
 > Preferences covers System/Light/Dark, Metric/Imperial, the Monthly Calorie
 > Guard, and the optional **AI coach** row (`Chat` when a key is saved, `Set up`
 > otherwise); Account & Backup puts last sync, pending-change count, and
-> **Retry sync** together, then guest import and sign-out; Help & Privacy
-> explains sync/data handling and exposes the legal/support URLs plus the app
-> version. Account deletion is still a release blocker (see section 10).
+> **Retry sync** together, then guest import and sign-out; About shows the
+> installed version, checks GitHub for Android updates, and holds the legal,
+> privacy, and support links. Account deletion is still a release blocker (see
+> section 10).
 
 **Upgrade to iOS Settings-style groups:**
 
@@ -2127,7 +2128,7 @@ Every data-driven screen needs:
 - [ ] Today has a large title, hero calories card, and quick actions.
 - [ ] Fasting, nutrition, water, steps, exercise, sleep, and weight all have empty/loading/error states.
 - [ ] Trends can export/share a weekly summary.
-- [x] Profile is grouped into Goals, Preferences, Account & Backup, and Help & Privacy.
+- [x] Profile is grouped into Goals, Preferences, Account & Backup, and About.
 - [ ] Account deletion is reachable in-app and revokes Apple tokens.
 - [x] Past day no longer mutates controllers during build.
 - [ ] All screens are usable at 200% text scale and on iPhone SE.
