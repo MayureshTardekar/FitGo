@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/ai_chat_message.dart';
 import '../providers/ai_provider.dart';
+import '../services/ai/ai_chat_store.dart';
 import '../services/ai/ai_failure.dart';
 import '../ui/components/fitgo_primary_button.dart';
 import '../ui/haptics.dart';
@@ -22,7 +23,8 @@ class AiChatScreen extends ConsumerStatefulWidget {
   ConsumerState<AiChatScreen> createState() => _AiChatScreenState();
 }
 
-class _AiChatScreenState extends ConsumerState<AiChatScreen> {
+class _AiChatScreenState extends ConsumerState<AiChatScreen>
+    with WidgetsBindingObserver {
   static const _hints = [
     'Summarize week',
     'How is my water going?',
@@ -40,25 +42,39 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   final _composer = TextEditingController();
   final _focusNode = FocusNode();
   final _scrollController = ScrollController();
+  late final AiChatStore _chatStore;
 
   Timer? _hintTimer;
+  Timer? _draftSaveTimer;
+  Future<void> _draftSaveQueue = Future<void>.value();
   int _hintIndex = 0;
+  int _resumeGeneration = 0;
+  bool _appIsResumed = true;
   bool _canSend = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _chatStore = ref.read(aiChatStoreProvider);
+    final savedDraft = _chatStore.loadDraft();
+    if (savedDraft.isNotEmpty) {
+      _composer.value = TextEditingValue(
+        text: savedDraft,
+        selection: TextSelection.collapsed(offset: savedDraft.length),
+      );
+      _canSend = true;
+    }
     _composer.addListener(_onComposerChanged);
-    _hintTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (!mounted || _composer.text.isNotEmpty) return;
-      setState(() => _hintIndex = (_hintIndex + 1) % _hints.length);
-    });
+    _startHintTimer();
     _scheduleScroll(animated: false);
   }
 
   @override
   void dispose() {
-    _hintTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    _stopHintTimer();
+    _persistDraftNow();
     _composer
       ..removeListener(_onComposerChanged)
       ..dispose();
@@ -72,6 +88,71 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     if (canSend != _canSend) {
       setState(() => _canSend = canSend);
     }
+    if (_composer.text.isEmpty) {
+      _startHintTimer();
+    } else {
+      _stopHintTimer();
+    }
+    _draftSaveTimer?.cancel();
+    _draftSaveTimer = Timer(const Duration(milliseconds: 350), _persistDraft);
+  }
+
+  void _startHintTimer() {
+    if (!_appIsResumed || _composer.text.isNotEmpty || _hintTimer != null) {
+      return;
+    }
+    _hintTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted || !_appIsResumed || _composer.text.isNotEmpty) return;
+      setState(() => _hintIndex = (_hintIndex + 1) % _hints.length);
+    });
+  }
+
+  void _stopHintTimer() {
+    _hintTimer?.cancel();
+    _hintTimer = null;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _appIsResumed = false;
+      _stopHintTimer();
+      // A notification shade/quick reply can leave Android's text input
+      // connection stale. Keep the draft, but close it before backgrounding.
+      _focusNode.unfocus();
+      _persistDraftNow();
+      return;
+    }
+
+    if (state == AppLifecycleState.resumed && mounted) {
+      _appIsResumed = true;
+      _startHintTimer();
+      // Recreate the page after Android restores its activity surface and
+      // insets, avoiding a stale blank frame on this route.
+      setState(() => _resumeGeneration++);
+      _scheduleScroll(animated: false);
+    }
+  }
+
+  void _persistDraftNow() {
+    _draftSaveTimer?.cancel();
+    _draftSaveTimer = null;
+    unawaited(_persistDraft());
+  }
+
+  Future<void> _persistDraft() {
+    final draft = _composer.text;
+    _draftSaveQueue = _draftSaveQueue.then((_) async {
+      try {
+        await _chatStore.saveDraft(draft);
+      } catch (_) {
+        // Draft persistence is best-effort; it must not interrupt chat.
+      }
+    });
+    return _draftSaveQueue;
   }
 
   @override
@@ -87,59 +168,63 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       }
     });
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('AI coach'),
-        actions: [
-          IconButton(
-            tooltip: 'Clear conversation',
-            onPressed: chat.hasMessages ? _confirmClear : null,
-            icon: const Icon(Icons.delete_sweep_outlined),
-          ),
-          IconButton(
-            tooltip: 'AI coach settings',
-            onPressed: _openSettings,
-            icon: const Icon(Icons.tune_rounded),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            Expanded(
-              child: chat.hasMessages || chat.sending
-                  ? _Conversation(
-                      chat: chat,
-                      scrollController: _scrollController,
-                    )
-                  : _EmptyState(
-                      settings: settings,
-                      suggestions: _suggestions,
-                      onSuggestion: _sendText,
-                      onSetup: _openSettings,
-                    ),
+    return KeyedSubtree(
+      key: ValueKey(_resumeGeneration),
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        appBar: AppBar(
+          title: const Text('AI coach'),
+          actions: [
+            IconButton(
+              tooltip: 'Clear conversation',
+              onPressed: chat.hasMessages ? _confirmClear : null,
+              icon: const Icon(Icons.delete_sweep_outlined),
             ),
-            if (chat.failure != null)
-              _FailureBanner(
-                failure: chat.failure!,
-                canRetry: chat.canRetry,
-                onRetry: () => ref.read(aiChatProvider.notifier).retry(),
-                onOpenSettings: _openSettings,
-                onDismiss: () =>
-                    ref.read(aiChatProvider.notifier).dismissFailure(),
-              ),
-            _Composer(
-              controller: _composer,
-              focusNode: _focusNode,
-              hint: _hints[_hintIndex],
-              canSend: _canSend,
-              sending: chat.sending,
-              modelLabel: chat.usingModel,
-              onSend: _send,
-              onStop: _stop,
+            IconButton(
+              tooltip: 'AI coach settings',
+              onPressed: _openSettings,
+              icon: const Icon(Icons.tune_rounded),
             ),
           ],
+        ),
+        body: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              Expanded(
+                child: chat.hasMessages || chat.sending
+                    ? _Conversation(
+                        chat: chat,
+                        scrollController: _scrollController,
+                      )
+                    : _EmptyState(
+                        settings: settings,
+                        suggestions: _suggestions,
+                        onSuggestion: _sendText,
+                        onSetup: _openSettings,
+                      ),
+              ),
+              if (chat.failure != null)
+                _FailureBanner(
+                  failure: chat.failure!,
+                  canRetry: chat.canRetry,
+                  onRetry: () => ref.read(aiChatProvider.notifier).retry(),
+                  onOpenSettings: _openSettings,
+                  onDismiss: () =>
+                      ref.read(aiChatProvider.notifier).dismissFailure(),
+                ),
+              _Composer(
+                controller: _composer,
+                focusNode: _focusNode,
+                hint: _hints[_hintIndex],
+                canSend: _canSend,
+                sending: chat.sending,
+                modelLabel: chat.usingModel,
+                onSend: _send,
+                onStop: _stop,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -157,6 +242,9 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       );
     }
     _composer.clear();
+    _draftSaveTimer?.cancel();
+    _draftSaveTimer = null;
+    unawaited(_persistDraft());
     _focusNode.requestFocus();
     FitGoHaptics.select();
     ref.read(aiChatProvider.notifier).send(text);

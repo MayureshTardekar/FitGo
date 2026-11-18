@@ -14,10 +14,12 @@ Calculate on-device using simple math, with no AI or network:
 Keep the main screen calm. Put detailed math and longer explanations behind a collapsed **Goal breakdown** or an info icon. Do not block saving or hide a zero/negative raw calorie result; show a concise explanation beside it. Keep workouts separate from the base goal and intake forecast. Logged activity may show its observed impact separately. Do not assume future workouts unless the user explicitly enters that assumption.
 
 
-> **Status:** In progress on `feature/ios-foundation`  
-> **Current app:** FitGo `3.0.0+3` — Flutter 3.41.7 / Dart 3.11.5  
+> **Status:** Android release `3.0.5+7` prepared on `main`
+> **Current app:** FitGo `3.0.5+7` — Flutter 3.41.7 / Dart 3.11.5
 > **Target:** A polished, adaptive FitGo that feels at home on iPhone and iPad, is App Store-ready, and keeps Android working.  
-> **Last updated:** 17 November 2026
+> **Last updated:** 18 November 2026
+>
+> **FitGo 3.0.5 (18 Nov 2026):** Hardened AI Coach activity resume after Android notification shade/app switching. The coach pauses its rotating hint timer in the background, dismisses stale keyboard focus, recreates its page subtree on resume, and keeps an unsent draft locally on-device (not in cloud sync); drafts clear when sent.
 > **Next milestone:** a TestFlight install on a real iPhone and iPad. Code-side Phase 0, Phase 1, the v3 Today/Trends/Profile rebuild, and the optional AI coach are in place; macOS signing, device verification, account deletion, published legal URLs, and store data-safety answers remain external blockers.
 >
 > **v3 UI snapshot (16 Nov 2026):** Today is a quick logbook with one calorie hero, independent flat rows, one meal sheet, one-tap water with Undo, and a folded Health section. Trends opens on this week with one intake-vs-budget chart, one plain-language insight, lazy history, and `/past-day?date=` deep links. Profile is grouped into **Goals**, **Preferences**, **Account & Backup**, and **Help & Privacy**, with last sync, pending-change count, and retry together. **Goals → Goal plan** asks for a target weight and date, then sets daily calories and water from a safe deficit/surplus.

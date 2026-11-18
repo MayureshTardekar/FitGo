@@ -20,6 +20,10 @@ final aiHttpClientFactoryProvider = Provider<http.Client Function()>(
 
 final aiNowProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 
+final aiChatStoreProvider = Provider<AiChatStore>(
+  (ref) => AiChatStore(ref.read(localStorageProvider)),
+);
+
 class AiSettings {
   const AiSettings({
     required this.hasKey,

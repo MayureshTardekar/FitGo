@@ -12,10 +12,31 @@ class AiChatStore {
   const AiChatStore(this.storage);
 
   static const historySetting = 'ai_chat_history_v1';
+  static const draftSetting = 'ai_chat_draft_v1';
   static const maxMessages = 40;
   static const maxTextLength = 4000;
+  static const maxDraftLength = 2000;
 
   final LocalStorage storage;
+
+  String loadDraft() {
+    final draft = storage.getSetting<String>(draftSetting, '');
+    return draft.length > maxDraftLength
+        ? draft.substring(0, maxDraftLength)
+        : draft;
+  }
+
+  /// Keeps an unsent composer draft on this device, outside cloud sync.
+  Future<void> saveDraft(String draft) async {
+    if (draft.isEmpty) {
+      await storage.deleteLocalSetting(draftSetting);
+      return;
+    }
+    final boundedDraft = draft.length > maxDraftLength
+        ? draft.substring(0, maxDraftLength)
+        : draft;
+    await storage.saveLocalSetting(draftSetting, boundedDraft);
+  }
 
   List<AiChatMessage> load() {
     final raw = storage.getSetting<String>(historySetting, '');

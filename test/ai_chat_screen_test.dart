@@ -4,6 +4,7 @@ import 'package:fitgo/models/ai_chat_message.dart';
 import 'package:fitgo/providers/ai_provider.dart';
 import 'package:fitgo/providers/storage_provider.dart';
 import 'package:fitgo/screens/ai_chat_screen.dart';
+import 'package:fitgo/services/ai/ai_chat_store.dart';
 import 'package:fitgo/services/ai/ai_failure.dart';
 import 'package:fitgo/services/ai/ai_key_store.dart';
 import 'package:fitgo/services/local_storage.dart';
@@ -28,6 +29,20 @@ class _FakeKeyStore implements AiKeyStore {
   @override
   Future<void> deleteKey(String namespace) async {
     keys.remove(namespace);
+  }
+}
+
+class _FakeAiChatStore extends AiChatStore {
+  _FakeAiChatStore(super.storage);
+
+  String draft = '';
+
+  @override
+  String loadDraft() => draft;
+
+  @override
+  Future<void> saveDraft(String value) async {
+    draft = value;
   }
 }
 
@@ -65,12 +80,14 @@ void main() {
   late Directory tempDir;
   late LocalStorage storage;
   late _FakeKeyStore keyStore;
+  late _FakeAiChatStore chatStore;
 
   setUp(() async {
     tempDir = await Directory.systemTemp.createTemp('fitgo_ai_widget_test_');
     storage = LocalStorage();
     await storage.init(userId: 'widget_account', hivePath: tempDir.path);
     keyStore = _FakeKeyStore();
+    chatStore = _FakeAiChatStore(storage);
   });
 
   tearDown(() async {
@@ -85,6 +102,7 @@ void main() {
       overrides: [
         localStorageProvider.overrideWithValue(storage),
         aiKeyStoreProvider.overrideWithValue(keyStore),
+        aiChatStoreProvider.overrideWithValue(chatStore),
         if (chat != null) aiChatProvider.overrideWith(chat),
       ],
       child: MaterialApp(
@@ -175,6 +193,33 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Open settings'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('AI chat redraws on resume and preserves its unsent draft', (
+    tester,
+  ) async {
+    useSmallScreen(tester);
+    await tester.pumpWidget(wrap(const AiChatScreen()));
+    await settle(tester);
+
+    await tester.enterText(find.byType(TextField), 'Typed but not sent');
+    await tester.pump();
+    final beforePause = tester.widget<Scaffold>(find.byType(Scaffold));
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    expect(chatStore.draft, 'Typed but not sent');
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await settle(tester);
+
+    final afterResume = tester.widget<Scaffold>(find.byType(Scaffold));
+    expect(identical(afterResume, beforePause), isFalse);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller?.text,
+      'Typed but not sent',
+    );
     expect(tester.takeException(), isNull);
   });
 

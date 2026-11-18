@@ -187,6 +187,20 @@ void main() {
       await storage.switchToAccount('account_a');
       expect(chatStore.load().single.text, 'account A question');
     });
+
+    test('unsent drafts stay local and can be cleared', () async {
+      final chatStore = AiChatStore(storage);
+      await chatStore.saveDraft('Typed but not sent');
+      expect(chatStore.loadDraft(), 'Typed but not sent');
+
+      await storage.switchToAccount('account_b');
+      expect(chatStore.loadDraft(), isEmpty);
+
+      await storage.switchToAccount('account_a');
+      expect(chatStore.loadDraft(), 'Typed but not sent');
+      await chatStore.saveDraft('');
+      expect(chatStore.loadDraft(), isEmpty);
+    });
   });
 
   group('AiContextBuilder', () {
