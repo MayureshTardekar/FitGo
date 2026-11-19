@@ -44,6 +44,11 @@ class AppUpdateService {
   static const String repoName = 'FitGo';
   static const String fallbackCurrentVersion = '3.0.7';
 
+  /// In-app updates install Android APK assets, so the update check and the
+  /// download action are Android-only. iOS gets updates through the App Store.
+  static bool get isSupported =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
   Future<String> getCurrentVersion() async {
     try {
       final info = await PackageInfo.fromPlatform();
@@ -54,9 +59,21 @@ class AppUpdateService {
   }
 
   Future<AppUpdateInfo> checkForUpdates({http.Client? client}) async {
+    final currentVersion = await getCurrentVersion();
+
+    // Do not query GitHub for an APK on iOS, web, desktop, or tests running
+    // on another platform. The version still comes from package_info_plus.
+    if (!isSupported) {
+      return AppUpdateInfo(
+        currentVersion: currentVersion,
+        latestVersion: currentVersion,
+        isUpdateAvailable: false,
+        releaseNotes: '',
+      );
+    }
+
     final httpClient = client ?? http.Client();
     try {
-      final currentVersion = await getCurrentVersion();
       final url = Uri.parse(
         'https://api.github.com/repos/$repoOwner/$repoName/releases/latest',
       );
@@ -80,7 +97,9 @@ class AppUpdateService {
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final rawTag = (data['tag_name'] as String? ?? '').trim();
-      final latestVersion = rawTag.startsWith('v') ? rawTag.substring(1) : rawTag;
+      final latestVersion = rawTag.startsWith('v')
+          ? rawTag.substring(1)
+          : rawTag;
       final releaseNotes = data['body'] as String? ?? '';
 
       final isNewer = _isVersionNewer(latestVersion, currentVersion);
@@ -120,7 +139,9 @@ class AppUpdateService {
 
       return AppUpdateInfo(
         currentVersion: currentVersion,
-        latestVersion: latestVersion.isNotEmpty ? latestVersion : currentVersion,
+        latestVersion: latestVersion.isNotEmpty
+            ? latestVersion
+            : currentVersion,
         isUpdateAvailable: isNewer && downloadUrl != null,
         releaseNotes: releaseNotes,
         downloadUrl: downloadUrl,
@@ -128,7 +149,6 @@ class AppUpdateService {
         fileSize: fileSize,
       );
     } catch (e) {
-      final currentVersion = await getCurrentVersion();
       return AppUpdateInfo(
         currentVersion: currentVersion,
         latestVersion: currentVersion,
@@ -146,13 +166,22 @@ class AppUpdateService {
     required void Function(double progress, int received, int total) onProgress,
     http.Client? client,
   }) async {
+    if (!isSupported) {
+      throw UnsupportedError(
+        'In-app APK updates are only available on Android. '
+        'Install iOS updates through the App Store.',
+      );
+    }
+
     final httpClient = client ?? http.Client();
     try {
       final request = http.Request('GET', Uri.parse(downloadUrl));
       final response = await httpClient.send(request);
 
       if (response.statusCode != 200) {
-        throw HttpException('Download failed with status ${response.statusCode}');
+        throw HttpException(
+          'Download failed with status ${response.statusCode}',
+        );
       }
 
       final totalBytes = response.contentLength ?? 0;
@@ -195,8 +224,15 @@ class AppUpdateService {
 
   static bool _isVersionNewer(String latest, String current) {
     try {
-      final lParts = latest.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-      final cParts = current.split('+')[0].split('.').map((e) => int.tryParse(e) ?? 0).toList();
+      final lParts = latest
+          .split('.')
+          .map((e) => int.tryParse(e) ?? 0)
+          .toList();
+      final cParts = current
+          .split('+')[0]
+          .split('.')
+          .map((e) => int.tryParse(e) ?? 0)
+          .toList();
 
       for (var i = 0; i < 3; i++) {
         final l = i < lParts.length ? lParts[i] : 0;

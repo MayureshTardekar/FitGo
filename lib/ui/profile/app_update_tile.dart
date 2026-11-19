@@ -28,19 +28,26 @@ class _AppUpdateTileState extends ConsumerState<AppUpdateTile> {
   Widget build(BuildContext context) {
     final updateState = ref.watch(appUpdateNotifierProvider);
     final tokens = context.tokens;
-    final currentVer = updateState.info?.currentVersion ?? AppUpdateService.fallbackCurrentVersion;
+    final currentVer =
+        updateState.info?.currentVersion ??
+        AppUpdateService.fallbackCurrentVersion;
+    final canUpdate = AppUpdateService.isSupported;
 
     return FitGoListRow(
       leadingIcon: Icons.info_outline_rounded,
       title: 'App version',
       subtitle: 'v$currentVer (FitGo 3.0)',
       showChevron: false,
-      trailing: _buildBadge(context, updateState, tokens),
-      onTap: () => _handleTap(context, ref, updateState),
+      trailing: canUpdate ? _buildBadge(context, updateState, tokens) : null,
+      onTap: canUpdate ? () => _handleTap(context, ref, updateState) : null,
     );
   }
 
-  Widget _buildBadge(BuildContext context, AppUpdateState state, FitGoTokens tokens) {
+  Widget _buildBadge(
+    BuildContext context,
+    AppUpdateState state,
+    FitGoTokens tokens,
+  ) {
     switch (state.status) {
       case UpdateStatus.checking:
         return Row(
@@ -58,9 +65,9 @@ class _AppUpdateTileState extends ConsumerState<AppUpdateTile> {
             Text(
               'Checking…',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: tokens.textSecondary,
-                    fontSize: 12,
-                  ),
+                color: tokens.textSecondary,
+                fontSize: 12,
+              ),
             ),
           ],
         );
@@ -136,11 +143,7 @@ class _AppUpdateTileState extends ConsumerState<AppUpdateTile> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.check_circle_rounded,
-                  size: 14,
-                  color: tokens.mint,
-                ),
+                Icon(Icons.check_circle_rounded, size: 14, color: tokens.mint),
                 const SizedBox(width: 4),
                 Text(
                   'Up to date',
@@ -165,7 +168,8 @@ class _AppUpdateTileState extends ConsumerState<AppUpdateTile> {
       return;
     }
 
-    if (state.status == UpdateStatus.checking || state.status == UpdateStatus.downloading) {
+    if (state.status == UpdateStatus.checking ||
+        state.status == UpdateStatus.downloading) {
       return;
     }
 
@@ -183,7 +187,11 @@ class _AppUpdateTileState extends ConsumerState<AppUpdateTile> {
     );
   }
 
-  void _showUpdateDialog(BuildContext context, WidgetRef ref, AppUpdateState state) {
+  void _showUpdateDialog(
+    BuildContext context,
+    WidgetRef ref,
+    AppUpdateState state,
+  ) {
     final info = state.info;
     if (info == null) return;
 
@@ -221,7 +229,9 @@ class _AppUpdateTileState extends ConsumerState<AppUpdateTile> {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
-                        value: liveState.progress > 0 ? liveState.progress : null,
+                        value: liveState.progress > 0
+                            ? liveState.progress
+                            : null,
                         color: tokens.ember,
                         backgroundColor: tokens.surfaceMuted,
                         minHeight: 6,
@@ -233,9 +243,9 @@ class _AppUpdateTileState extends ConsumerState<AppUpdateTile> {
                       child: Text(
                         'Downloading… $percent%',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: tokens.ember,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          color: tokens.ember,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
@@ -256,7 +266,9 @@ class _AppUpdateTileState extends ConsumerState<AppUpdateTile> {
                       foregroundColor: Colors.white,
                     ),
                     onPressed: () {
-                      ref.read(appUpdateNotifierProvider.notifier).startDownloadAndInstall();
+                      ref
+                          .read(appUpdateNotifierProvider.notifier)
+                          .startDownloadAndInstall();
                     },
                     child: const Text('UPDATE NOW'),
                   ),
